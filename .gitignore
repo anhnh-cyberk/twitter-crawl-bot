@@ -1,0 +1,9 @@
+*.csv 
+*.txt 
+twitter_accounts.py
+.venv
+data
+__pycache__/
+.env
+connection.json
+node_modules

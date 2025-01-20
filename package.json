@@ -1,0 +1,30 @@
+{
+  "name": "twitter-crawl-bot",
+  "version": "1.0.0",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "npx tsx src/index/test.js",
+    "following": "npx tsx src/get_following/get_following.ts",
+    "auto": "npx tsx src/get_tracking_following/get_auto.ts",
+    "index": "npx tsx src/index/index.ts",
+    "load": "npx tsx src/load/load.ts",
+    "load-relation": "npx tsx src/load/load_relation.ts"
+  },
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "@types/node": "^22.10.7",
+    "@types/pg": "^8.11.10",
+    "dotenv": "^16.4.7",
+    "tsx": "^4.19.2"
+  },
+  "dependencies": {
+    "@types/luxon": "^3.4.2",
+    "axios": "^1.7.9",
+    "luxon": "^3.5.0",
+    "mongodb": "^6.12.0",
+    "pg-promise": "^11.10.2"
+  }
+}
