@@ -1,16 +1,13 @@
 import * as fs from "fs";
-import { MongoClient } from "mongodb";
 import { makeGetRequest } from "../twitter_controller/rotate_account.js";
+import { getMongoConnection } from "../connection/mongo-connection";
 
+const client = getMongoConnection();
 async function getAndUpdateAllFriends(userId: string): Promise<any[]> {
   const allRecords: any[] = [];
   let cursor: string | null = ""; // Start without a cursor
   let loop = 0;
   const MAX_RECORD_COUNT = 1000;
-  // cursor = "1811011650233850728%7C1878699358648532940";
-
-  // TypeScript doesn't have a direct equivalent to Python's 'with open'.
-  // You'll need to use the fs module for file handling.
   const file = fs.createWriteStream("error_get_following.txt", {
     flags: "a",
     encoding: "utf-8",
@@ -90,12 +87,6 @@ async function getAndUpdateAllFriends(userId: string): Promise<any[]> {
   return allRecords;
 }
 
-// Assuming you have a MongoDB client initialized as 'client'
-
-declare global {
-  var client: MongoClient;
-}
-
 async function AddTwitterAccount(
   userId: string,
   screenName: string,
@@ -158,7 +149,6 @@ async function AddAutoTracking(
   );
 }
 
-
 async function makeApiRequest(
   userId: string,
   cursor: string | null
@@ -200,3 +190,53 @@ async function makeApiRequest(
     }
   }
 }
+
+async function getFollowingFunc() {
+  const db = client.db("CoinseekerETL");
+  const userCollection = db.collection("User");
+  const recentlyAddedUser = await userCollection.findOne({ status: "new" });
+  if (!recentlyAddedUser) {
+    console.log("No new user found");
+    return;
+  }
+  // TODO: update status to processing to run multithread
+  // get data for level 2
+  const data = await getAndUpdateAllFriends(recentlyAddedUser.twitter_id);
+  // save raw data
+  const rawCollection = db.collection("RawData_TwitterUser_Friends");
+  await rawCollection.updateOne(
+    { user_id: recentlyAddedUser.twitter_id },
+    {
+      $set: {
+        screen_name: recentlyAddedUser.screen_name,
+        data: data,
+      },
+    },
+    { upsert: true }
+  );
+  // after inserting level 2 data, set lv1 record status to completed
+  await userCollection.updateOne(
+    { _id: recentlyAddedUser._id },
+    {
+      $set: {
+        status: "completed",
+      },
+    }
+  );
+}
+
+async function main() {
+  const delay = 1;
+  while (true) {
+    try {
+      await getFollowingFunc();
+      console.log(`process completed, retry in next ${delay}s`);
+      await new Promise((resolve) => setTimeout(resolve, delay * 1000));
+    } catch {
+      break;
+    }
+  }
+  client.close();
+}
+
+main();

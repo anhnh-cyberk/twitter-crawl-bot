@@ -1,18 +1,8 @@
-import { MongoClient, Collection, Document } from "mongodb";
-import pg from "pg";
-import * as dotenv from "dotenv";
-dotenv.config();
+import { Collection, Document } from "mongodb";
 
-const pool = new pg.Pool({
-  user: process.env.DB_USER,
-  host: process.env.DB_HOST,
-  database: process.env.DB_NAME,
-  password: process.env.DB_PASSWORD,
-  port: parseInt(process.env.DB_PORT || "5432"),
-  ssl: {
-    rejectUnauthorized: false,
-  },
-});
+import { getMongoConnection } from "../connection/mongo-connection";
+import { getPostgreConnection } from "../connection/postgre-connection";
+const pool=getPostgreConnection()
 interface User {
   twitter_id: string;
   screen_name: string;
@@ -20,7 +10,6 @@ interface User {
 
 let userCollection: Collection<Document>;
 // Initialize MongoDB client
-const mongoClient = new MongoClient("mongodb://localhost:27017/");
 
 async function insertNewUserToLake(userList: User[]): Promise<void> {
   for (const user of userList) {
@@ -53,8 +42,8 @@ async function loadUserFromCoinseeker(): Promise<User[]> {
   }
 }
 
-async function main(): Promise<void> {
-  await mongoClient.connect();
+async function main(): Promise<void> {``
+  const mongoClient = getMongoConnection();
   const db = mongoClient.db("CoinseekerETL");
   userCollection = db.collection("User");
   const delay = 1;

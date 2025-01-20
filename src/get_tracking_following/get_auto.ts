@@ -1,18 +1,12 @@
-import { MongoClient, Db, Collection, ObjectId } from "mongodb";
-import { Pool } from "pg";
+import { Db, Collection, ObjectId } from "mongodb";
 import { setTimeout as sleep } from "timers/promises";
 import * as fs from "fs";
 import { DateTime } from "luxon";
 import { makeGetRequest } from "../twitter_controller/rotate_account.js";
-
-interface ConnectionData {
-  host: string;
-  database: string;
-  user: string;
-  password: string;
-  port: number;
-}
-
+import { getMongoConnection } from "../connection/mongo-connection";
+import { getPostgreConnection } from "../connection/postgre-connection";
+const pool = getPostgreConnection();
+const client = getMongoConnection();
 interface AutoTracking {
   _id: ObjectId;
   twitter_id: string;
@@ -54,22 +48,6 @@ interface APIResponse {
   data: any[];
   next_cursor: string | null;
 }
-
-const connectionData: ConnectionData = JSON.parse(
-  fs.readFileSync("connection.json", "utf-8")
-);
-
-const client: MongoClient = new MongoClient("mongodb://localhost:27017/");
-const pool: Pool = new Pool({
-  host: connectionData.host,
-  database: connectionData.database,
-  user: connectionData.user,
-  password: connectionData.password,
-  port: connectionData.port,
-  ssl: {
-    rejectUnauthorized: false,
-  },
-});
 
 async function trackFollowingFunc(): Promise<void> {
   const db: Db = client.db("CoinseekerETL");

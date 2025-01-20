@@ -1,11 +1,7 @@
 import axios from "axios";
-import { MongoClient } from "mongodb";
 import * as fs from "fs";
-
-declare global {
-  var client: MongoClient;
-}
-
+import { getMongoConnection } from "../connection/mongo-connection";
+const client = getMongoConnection();
 export async function makeGetRequest(url: string): Promise<any> {
   const db = client.db("CoinseekerETL");
   const botAccountCollection = db.collection("BotAccount");
