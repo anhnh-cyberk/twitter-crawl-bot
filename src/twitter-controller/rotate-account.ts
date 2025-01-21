@@ -5,21 +5,25 @@ const client = getMongoConnection();
 export async function makeGetRequest(url: string): Promise<any> {
   const db = client.db("CoinseekerETL");
   const botAccountCollection = db.collection("BotAccount");
-  const accountList = await botAccountCollection
-    .find({ status: { $ne: "error" } })
-    .toArray();
+  let accountListDicts;
+  if (fs.existsSync("account_list.json")) {
+    accountListDicts = JSON.parse(
+      fs.readFileSync("account_list.json", "utf-8")
+    );
+  } else {
+    const accountList = await botAccountCollection
+      .find({ status: { $ne: "error" } })
+      .toArray();
 
-  const accountListDicts = accountList.map((account) => ({
-    username: account.username,
-    cookie: account.cookie,
-    authorization: account.authorization,
-    "x-csrf-token": account["x-csrf-token"],
-    "x-guest-token": account["x-guest-token"],
-    "user-agent": account["user-agent"],
-  }));
+    accountListDicts = accountList.map((account) => ({
+      username: account.username,
+      cookie: account.cookie,
+      authorization: account.authorization,
+      "x-csrf-token": account["x-csrf-token"],
+      "x-guest-token": account["x-guest-token"],
+      "user-agent": account["user-agent"],
+    }));
 
-  // Write the account list to a JSON file (if it doesn't exist)
-  if (!fs.existsSync("account_list.json")) {
     fs.writeFileSync(
       "account_list.json",
       JSON.stringify(accountListDicts, null, 2)

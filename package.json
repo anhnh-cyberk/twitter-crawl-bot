@@ -6,6 +6,8 @@
   "scripts": {
     "test": "npx tsx src/index/test.js",
     "following": "npx tsx src/get_following/get_following.ts",
+    "daily": "npx tsx src/daily-update/daily-update-user.ts",
+    "daily-kol": "npx tsx src/daily-update/daily-update-kol.ts",
     "auto": "npx tsx src/get_tracking_following/get_auto.ts",
     "index": "npx tsx src/index/index.ts",
     "load": "npx tsx src/load/load.ts",
