@@ -1,7 +1,7 @@
 import { Collection, Document } from "mongodb";
 
-import { getMongoConnection } from "../connection/mongo-connection";
-import { getPostgreConnection } from "../connection/postgre-connection";
+import { getMongoConnection } from "../common/connection/mongo-connection";
+import { getPostgreConnection } from "../common/connection/postgre-connection";
 const pool=getPostgreConnection()
 interface User {
   twitter_id: string;

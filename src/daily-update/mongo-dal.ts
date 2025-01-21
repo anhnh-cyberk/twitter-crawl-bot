@@ -1,8 +1,5 @@
-import {
-  getMongoConnection,
-  TwitterAccount,
-  Relation,
-} from "../connection/mongo-connection"; // Assuming you use an ODM or create a DAL
+import { getMongoConnection } from "../common/connection/mongo-connection";
+import { TwitterAccount, Relation } from "../common/models/mongo-models";
 import { ObjectId } from "mongodb";
 
 const client = getMongoConnection();

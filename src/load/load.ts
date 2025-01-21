@@ -3,9 +3,9 @@ import { PoolClient } from "pg";
 import { setTimeout as sleep } from "timers/promises";
 import { DateTime } from "luxon";
 
-import { getMongoConnection } from "../connection/mongo-connection";
+import { getMongoConnection } from "../common/connection/mongo-connection";
 
-import { getPostgreConnection } from "../connection/postgre-connection";
+import { getPostgreConnection } from "../common/connection/postgre-connection";
 const pool = getPostgreConnection();
 
 interface TwitterAccountDocument {

@@ -3,7 +3,7 @@ import {
   TwitterAccount,
   Relation,
   AutoTracking,
-} from "../connection/mongo-connection"; // Assuming you use an ODM or create a DAL
+} from "../common/connection/mongo-connection"; // Assuming you use an ODM or create a DAL
 import { ObjectId } from "mongodb";
 
 const client = getMongoConnection();

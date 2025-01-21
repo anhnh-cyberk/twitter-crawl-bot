@@ -3,8 +3,16 @@ import { setTimeout as sleep } from "timers/promises";
 import * as fs from "fs";
 import { DateTime } from "luxon";
 import { makeGetRequest } from "../twitter-controller/rotate-account.js";
-import { getMongoConnection } from "../connection/mongo-connection.js";
-import { getPostgreConnection } from "../connection/postgre-connection.js";
+import { getMongoConnection } from "../common/connection/mongo-connection.js";
+import { getPostgreConnection } from "../common/connection/postgre-connection.js";
+import {
+  TwitterAccount,
+  TwitterAccountFollowing,
+  Tracking,
+  User,
+  RawDataTwitterUserFriends,
+} from "../common/models/mongo-models.js";
+import { APIResponse } from "../common/models/api-models.js";
 const pool = getPostgreConnection();
 const client = getMongoConnection();
 interface AutoTracking {
@@ -14,68 +22,32 @@ interface AutoTracking {
   status: "new" | "completed";
 }
 
-interface TwitterAccount {
-  _id: ObjectId;
-  user_id: string;
-  screen_name: string;
-  name: string;
-  avatar_url: string;
-  status?: "new" | string;
-}
-
-interface RawDataTwitterUserFriends {
-  _id: ObjectId;
-  user_id: string;
-  screen_name: string;
-  data: any[];
-}
-
-interface TwitterAccountFollowing {
-  _id: ObjectId;
-  user_id: string;
-  following_id: string;
-}
-
-interface User {
-  twitter_id: string;
-}
-
-interface Tracking {
-  twitter_id: string;
-}
-
-interface APIResponse {
-  data: any[];
-  next_cursor: string | null;
-}
-
-async function trackFollowingFunc(): Promise<void> {
+async function botFunc(): Promise<void> {
   const db: Db = client.db("CoinseekerETL");
   const autoTrackingCollection: Collection<AutoTracking> =
     db.collection("AutoTracking");
-  const trackingCollection: Collection<Tracking> = db.collection("Tracking");
-  const userCollection: Collection<User> = db.collection("User");
 
-  const recentlyAddedUser: AutoTracking | null =
+  const newTrackingUser: AutoTracking | null =
     await autoTrackingCollection.findOne({ status: "new" });
 
-  if (!recentlyAddedUser) {
+  if (!newTrackingUser) {
     console.log("No new user found");
     return;
   }
 
-  console.log(`Processing user ${recentlyAddedUser.screen_name}`);
-  const twitterId: string = recentlyAddedUser.twitter_id;
-
+  console.log(`Processing user ${newTrackingUser.screen_name}`);
+  const twitterId: string = newTrackingUser.twitter_id;
+  const trackingCollection: Collection<Tracking> = db.collection("Tracking");
+  const userCollection: Collection<User> = db.collection("User");
   if (
     (await userCollection.findOne({ twitter_id: twitterId })) ||
     (await trackingCollection.findOne({ twitter_id: twitterId }))
   ) {
     console.log(
-      `User ${recentlyAddedUser.screen_name} already in user/tracking collection`
+      `User ${newTrackingUser.screen_name} already in user/tracking collection`
     );
     await autoTrackingCollection.updateOne(
-      { _id: recentlyAddedUser._id },
+      { _id: newTrackingUser._id },
       { $set: { status: "completed" } }
     );
     return;
@@ -90,7 +62,7 @@ async function trackFollowingFunc(): Promise<void> {
     { user_id: twitterId },
     {
       $set: {
-        screen_name: recentlyAddedUser.screen_name,
+        screen_name: newTrackingUser.screen_name,
         data: data,
       },
     },
@@ -98,7 +70,7 @@ async function trackFollowingFunc(): Promise<void> {
   );
 
   await autoTrackingCollection.updateOne(
-    { _id: recentlyAddedUser._id },
+    { _id: newTrackingUser._id },
     { $set: { status: "completed" } }
   );
 }
@@ -262,7 +234,7 @@ async function main(): Promise<void> {
   const delay: number = 1;
   while (true) {
     try {
-      await trackFollowingFunc();
+      await botFunc();
       console.log(`process completed, retry in next ${delay}s`);
       await sleep(delay * 1000);
     } catch (e: any) {
