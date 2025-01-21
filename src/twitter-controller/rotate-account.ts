@@ -7,6 +7,7 @@ export async function makeGetRequest(url: string): Promise<any> {
   const botAccountCollection = db.collection("BotAccount");
   let accountListDicts;
   if (fs.existsSync("account_list.json")) {
+    //to use local file, test purpose
     accountListDicts = JSON.parse(
       fs.readFileSync("account_list.json", "utf-8")
     );
@@ -23,11 +24,6 @@ export async function makeGetRequest(url: string): Promise<any> {
       "x-guest-token": account["x-guest-token"],
       "user-agent": account["user-agent"],
     }));
-
-    fs.writeFileSync(
-      "account_list.json",
-      JSON.stringify(accountListDicts, null, 2)
-    );
   }
 
   const randomAccount =

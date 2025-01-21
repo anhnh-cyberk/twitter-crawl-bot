@@ -7,3 +7,4 @@ __pycache__/
 .env
 connection.json
 node_modules
+account_list.json

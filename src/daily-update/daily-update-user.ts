@@ -1,20 +1,12 @@
 import * as fs from "fs";
 import { makeGetRequest } from "../twitter-controller/rotate-account.js";
-import { TwitterAccountDAL, RelationDAL, RawDataDAL, UserDAL } from "./dal.js";
-
-class ApiError extends Error {
-  constructor(message: string, public response?: any) {
-    super(message);
-    this.name = "ApiError";
-  }
-}
-
-class AuthorizationError extends ApiError {
-  constructor(message: string, public response?: any) {
-    super(message, response);
-    this.name = "AuthorizationError";
-  }
-}
+import {
+  TwitterAccountDAL,
+  RelationDAL,
+  RawDataDAL,
+  UserDAL,
+} from "./mongo-dal.js";
+import { AuthorizationError, ApiError } from "../common/error.js";
 
 // Function to generate the API URL
 function generateFollowingApiUrl(

@@ -1,26 +1,15 @@
 import * as fs from "fs";
 import { makeGetRequest } from "../twitter-controller/rotate-account.js";
-import { TwitterAccountDAL, RelationDAL, RawDataDAL, KolDAL } from "./dal.js";
-
-class ApiError extends Error {
-  constructor(message: string, public response?: any) {
-    super(message);
-    this.name = "ApiError";
-  }
-}
-
-class AuthorizationError extends ApiError {
-  constructor(message: string, public response?: any) {
-    super(message, response);
-    this.name = "AuthorizationError";
-  }
-}
+import {
+  TwitterAccountDAL,
+  RelationDAL,
+  RawDataDAL,
+  KolDAL,
+} from "./mongo-dal.js";
+import { AuthorizationError, ApiError } from "../common/error.js";
 
 // Function to generate the API URL
-function generateFollowingApiUrl(
-  userId: string,
-  cursor: string | null
-): string {
+function generateApiUrl(userId: string, cursor: string | null): string {
   const features =
     "&features=%7B%22profile_label_improvements_pcf_label_in_post_enabled%22%3Atrue%2C%22rweb_tipjar_consumption_enabled%22%3Atrue%2C%22responsive_web_graphql_exclude_directive_enabled%22%3Atrue%2C%22verified_phone_label_enabled%22%3Afalse%2C%22creator_subscriptions_tweet_preview_api_enabled%22%3Atrue%2C%22responsive_web_graphql_timeline_navigation_enabled%22%3Atrue%2C%22responsive_web_graphql_skip_user_profile_image_extensions_enabled%22%3Afalse%2C%22premium_content_api_read_enabled%22%3Afalse%2C%22communities_web_enable_tweet_community_results_fetch%22%3Atrue%2C%22c9s_tweet_anatomy_moderator_badge_enabled%22%3Atrue%2C%22responsive_web_grok_analyze_button_fetch_trends_enabled%22%3Afalse%2C%22responsive_web_grok_analyze_post_followups_enabled%22%3Atrue%2C%22responsive_web_grok_share_attachment_enabled%22%3Atrue%2C%22articles_preview_enabled%22%3Atrue%2C%22responsive_web_edit_tweet_api_enabled%22%3Atrue%2C%22graphql_is_translatable_rweb_tweet_is_translatable_enabled%22%3Atrue%2C%22view_counts_everywhere_api_enabled%22%3Atrue%2C%22longform_notetweets_consumption_enabled%22%3Atrue%2C%22responsive_web_twitter_article_tweet_consumption_enabled%22%3Atrue%2C%22tweet_awards_web_tipping_enabled%22%3Afalse%2C%22creator_subscriptions_quote_tweet_preview_enabled%22%3Afalse%2C%22freedom_of_speech_not_reach_fetch_enabled%22%3Atrue%2C%22standardized_nudges_misinfo%22%3Atrue%2C%22tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled%22%3Atrue%2C%22rweb_video_timestamps_enabled%22%3Atrue%2C%22longform_notetweets_rich_text_read_enabled%22%3Atrue%2C%22longform_notetweets_inline_media_enabled%22%3Atrue%2C%22responsive_web_enhance_cards_enabled%22%3Afalse%7D";
   const baseUrl = "https://x.com/i/api/graphql/pbhw14as2BgZvJAwAbVJpg";
@@ -57,11 +46,11 @@ async function makeApiRequest(apiUrl: string): Promise<any> {
   }
 }
 
-async function fetchFriendsPage(
+async function fetchOnePage(
   userId: string,
   cursor: string | null
 ): Promise<{ data: any[]; nextCursor: string | null }> {
-  const apiUrl = generateFollowingApiUrl(userId, cursor);
+  const apiUrl = generateApiUrl(userId, cursor);
   const response = await makeApiRequest(apiUrl);
 
   fs.appendFileSync(
@@ -81,10 +70,7 @@ async function fetchFriendsPage(
 }
 
 //insert friend record, return true if already existed
-async function processFriendRecord(
-  userId: string,
-  record: any
-): Promise<boolean> {
+async function processOneRecord(userId: string, record: any): Promise<boolean> {
   try {
     const friendId = record.content.itemContent.user_results.result.rest_id;
     const screenName =
@@ -123,7 +109,7 @@ async function processFriendRecord(
   }
 }
 
-async function getAndUpdateAllFriends(userId: string): Promise<any[]> {
+async function getAndProcessAllPage(userId: string): Promise<any[]> {
   const allRecords: any[] = [];
   let cursor: string | null = "";
   let loop = 0;
@@ -134,10 +120,10 @@ async function getAndUpdateAllFriends(userId: string): Promise<any[]> {
     try {
       const delay = 10;
       await new Promise((resolve) => setTimeout(resolve, delay * 1000));
-      const { data, nextCursor } = await fetchFriendsPage(userId, cursor);
+      const { data, nextCursor } = await fetchOnePage(userId, cursor);
 
       for (const record of data) {
-        const existed = await processFriendRecord(userId, record);
+        const existed = await processOneRecord(userId, record);
         if (existed) {
           needFetchMore = false;
           console.log(`All follower of ${userId} has been added`);
@@ -177,14 +163,14 @@ async function getAndUpdateAllFriends(userId: string): Promise<any[]> {
   return allRecords;
 }
 
-async function getFollowingFunc() {
+async function botFunction() {
   const oldRecord = await KolDAL.getOldRecord();
   if (!oldRecord) {
-    console.log("No new kol need updated");
+    console.log("No kol need updated");
     return;
   }
 
-  const data = await getAndUpdateAllFriends(oldRecord.user_id);
+  const data = await getAndProcessAllPage(oldRecord.user_id);
 
   await RawDataDAL.upsert(oldRecord.user_id, oldRecord.screen_name, data);
 
@@ -195,7 +181,7 @@ async function main() {
   const delay = 10;
   while (true) {
     try {
-      await getFollowingFunc();
+      await botFunction();
       console.log(`process completed, retry in next ${delay}s`);
       await new Promise((resolve) => setTimeout(resolve, delay * 1000));
     } catch {
