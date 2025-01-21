@@ -1,7 +1,33 @@
-import { MongoClient } from "mongodb";
-
+import { MongoClient, Db } from "mongodb";
 import * as dotenv from "dotenv";
 dotenv.config();
+
+export interface TwitterAccount {
+  user_id: string;
+  screen_name: string;
+  name: string;
+  avatar_url: string;
+  status?: string; // Optional: e.g., "new", "processing", "completed"
+}
+
+export interface Relation {
+  user_id: string;
+  following_id: string;
+}
+
+export interface AutoTracking {
+  twitter_id: string;
+  screen_name: string;
+  name: string;
+  status?: string; // Optional: e.g., "new", "processing", "completed"
+}
+
+export interface User {
+  twitter_id: string;
+  screen_name: string;
+  name: string;
+  status?: string; // Optional: e.g., "new", "processing", "completed"
+}
 
 export function getMongoConnection() {
   const mongo_host = process.env.MONGO_HOST;
