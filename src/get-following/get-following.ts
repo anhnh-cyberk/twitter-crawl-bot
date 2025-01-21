@@ -1,5 +1,5 @@
 import * as fs from "fs";
-import { makeGetRequest } from "../twitter_controller/rotate_account.js";
+import { makeGetRequest } from "../twitter-controller/rotate-account.js";
 import {
   TwitterAccountDAL,
   RelationDAL,

@@ -5,14 +5,6 @@ import { DateTime } from "luxon";
 import { getMongoConnection } from "../connection/mongo-connection";
 import { getPostgreConnection } from "../connection/postgre-connection";
 const pool = getPostgreConnection();
-interface ConnectionData {
-  host: string;
-  database: string;
-  user: string;
-  password: string;
-  port: number;
-}
-
 interface FollowingDocument {
   _id: ObjectId;
   user_id: string | number;

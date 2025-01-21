@@ -1,20 +1,12 @@
 import { Db, Collection, ObjectId } from "mongodb";
-import { Pool, PoolClient } from "pg";
+import { PoolClient } from "pg";
 import { setTimeout as sleep } from "timers/promises";
 import { DateTime } from "luxon";
-import * as fs from "fs";
 
 import { getMongoConnection } from "../connection/mongo-connection";
 
 import { getPostgreConnection } from "../connection/postgre-connection";
 const pool = getPostgreConnection();
-interface ConnectionData {
-  host: string;
-  database: string;
-  user: string;
-  password: string;
-  port: number;
-}
 
 interface TwitterAccountDocument {
   _id: ObjectId;

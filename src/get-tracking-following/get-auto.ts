@@ -2,9 +2,9 @@ import { Db, Collection, ObjectId } from "mongodb";
 import { setTimeout as sleep } from "timers/promises";
 import * as fs from "fs";
 import { DateTime } from "luxon";
-import { makeGetRequest } from "../twitter_controller/rotate_account.js";
-import { getMongoConnection } from "../connection/mongo-connection";
-import { getPostgreConnection } from "../connection/postgre-connection";
+import { makeGetRequest } from "../twitter-controller/rotate-account.js";
+import { getMongoConnection } from "../connection/mongo-connection.js";
+import { getPostgreConnection } from "../connection/postgre-connection.js";
 const pool = getPostgreConnection();
 const client = getMongoConnection();
 interface AutoTracking {
