@@ -5,34 +5,31 @@ dotenv.config();
 let client: MongoClient | null = null;
 let connectionStatus = "disconnected";
 let connectionError = null;
-let retryCount = 0;
-const maxRetries = 3; // Or configure from environment
-const retryDelay = 2000; // Milliseconds
+// let retryCount = 0;
+// const maxRetries = 3; // Or configure from environment
+// const retryDelay = 2000; // Milliseconds
 
 export async function getMongoConnection() {
-  if (client && connectionStatus === "connected") {
-    return client;
-  }
-
-  if (connectionStatus === "connecting" || retryCount >= maxRetries) {
-    throw new Error(
-      connectionError ||
-        "MongoDB connection is still being established or max retries reached"
-    );
-  }
-
-  connectionStatus = "connecting";
-  connectionError = null;
-  retryCount++;
-
-  const mongo_host = process.env.MONGO_HOST;
-  const mongo_port = process.env.MONGO_PORT || 27017;
-  const mongo_user = process.env.MONGO_USER; // Your application's MongoDB username
-  const mongo_password = process.env.MONGO_PASSWORD; // Your application's MongoDB password
-  const mongo_auth_db = process.env.MONGO_AUTH_DB; // Authentication database
-  const mongo_uri = `mongodb://${mongo_user}:${mongo_password}@${mongo_host}:${mongo_port}/${mongo_auth_db}`;
-  console.log(mongo_uri);
   try {
+    if (client && connectionStatus === "connected") {
+      return client;
+    }
+
+    // if (connectionStatus === "connecting" || retryCount >= maxRetries) {
+    //   console.log("MongoDB connection is already being established.");
+    //   return client;
+    // }
+
+    // connectionStatus = "connecting";
+    // connectionError = null;
+    // retryCount++;
+
+    const mongo_host = process.env.MONGO_HOST;
+    const mongo_port = process.env.MONGO_PORT || 27017;
+    const mongo_user = process.env.MONGO_USER; // Your application's MongoDB username
+    const mongo_password = process.env.MONGO_PASSWORD; // Your application's MongoDB password
+    const mongo_auth_db = process.env.MONGO_AUTH_DB; // Authentication database
+    const mongo_uri = `mongodb://${mongo_user}:${mongo_password}@${mongo_host}:${mongo_port}/${mongo_auth_db}`;
     const newClient = new MongoClient(mongo_uri);
     newClient
       .connect()
@@ -40,36 +37,36 @@ export async function getMongoConnection() {
       .catch((error) =>
         console.error("MongoDB client connection error:", error)
       );
-    newClient.on("close", () => {
-      console.warn("MongoDB connection closed unexpectedly.");
-      connectionStatus = "disconnected";
-      client = null;
-      connectionError = "Connection closed";
-    });
+    // newClient.on("close", () => {
+    //   console.warn("MongoDB connection closed unexpectedly.");
+    //   connectionStatus = "disconnected";
+    //   client = null;
+    //   connectionError = "Connection closed";
+    // });
 
-    newClient.on("error", (err) => {
-      console.error("MongoDB connection error:", err);
-      connectionStatus = "disconnected";
-      client = null;
-      connectionError = err.message || "Connection error";
-    });
+    // newClient.on("error", (err) => {
+    //   console.error("MongoDB connection error:", err);
+    //   connectionStatus = "disconnected";
+    //   client = null;
+    //   connectionError = err.message || "Connection error";
+    // });
     client = newClient;
     connectionStatus = "connected";
-    retryCount = 0; // Reset on successful connection
+    // retryCount = 0; // Reset on successful connection
     console.log("MongoDB connected successfully.");
     return client;
   } catch (err) {
-    console.error(`MongoDB connection attempt ${retryCount} failed:`, err);
+    // console.error(`MongoDB connection attempt ${retryCount} failed:`, err);
     connectionStatus = "disconnected";
     connectionError = err.message || "Failed to connect to MongoDB";
 
-    if (retryCount < maxRetries) {
-      await new Promise((resolve) => setTimeout(resolve, retryDelay));
-      return getMongoConnection(); // Recursive retry
-    } else {
-      console.error("Max retries reached. Giving up on MongoDB connection.");
-      throw new Error(connectionError);
-    }
+    // if (retryCount < maxRetries) {
+    //   await new Promise((resolve) => setTimeout(resolve, retryDelay));
+    //   return getMongoConnection(); // Recursive retry
+    // } else {
+    //   console.error("Max retries reached. Giving up on MongoDB connection.");
+    //   throw new Error(connectionError);
+    // }
   }
 }
 export async function isMongoAvailable(client: MongoClient): Promise<boolean> {
