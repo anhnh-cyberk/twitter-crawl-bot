@@ -14,6 +14,7 @@ export interface Relation {
 }
 
 export interface AutoTracking {
+_id?: ObjectId;
   twitter_id: string;
   screen_name: string;
   name: string;

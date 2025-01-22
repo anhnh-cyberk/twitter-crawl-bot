@@ -1,78 +1,44 @@
-import { Db, Collection, ObjectId } from "mongodb";
 import { setTimeout as sleep } from "timers/promises";
 import * as fs from "fs";
 import { DateTime } from "luxon";
 import { makeGetRequest } from "../twitter-controller/rotate-account.js";
 import { getMongoConnection } from "../common/connection/mongo-connection.js";
 import { getPostgreConnection } from "../common/connection/postgre-connection.js";
-import {
-  TwitterAccount,
-  TwitterAccountFollowing,
-  Tracking,
-  User,
-  RawDataTwitterUserFriends,
-} from "../common/models/mongo-models.js";
 import { APIResponse } from "../common/models/api-models.js";
+import {
+  AutoTrackingDAL,
+  TwitterAccountDAL,
+  RelationDAL,
+  TrackingDAL,
+  UserDAL,
+  RawDataTwitterUserFriendsDAL,
+} from "./mongo-dal.js";
 const pool = getPostgreConnection();
 const client = getMongoConnection();
-interface AutoTracking {
-  _id: ObjectId;
-  twitter_id: string;
-  screen_name: string;
-  status: "new" | "completed";
-}
 
 async function botFunc(): Promise<void> {
-  const db: Db = client.db("CoinseekerETL");
-  const autoTrackingCollection: Collection<AutoTracking> =
-    db.collection("AutoTracking");
-
-  const newTrackingUser: AutoTracking | null =
-    await autoTrackingCollection.findOne({ status: "new" });
-
-  if (!newTrackingUser) {
-    console.log("No new user found");
-    return;
-  }
-
+  let newTrackingUser = await AutoTrackingDAL.getNewRecord();
   console.log(`Processing user ${newTrackingUser.screen_name}`);
   const twitterId: string = newTrackingUser.twitter_id;
-  const trackingCollection: Collection<Tracking> = db.collection("Tracking");
-  const userCollection: Collection<User> = db.collection("User");
   if (
-    (await userCollection.findOne({ twitter_id: twitterId })) ||
-    (await trackingCollection.findOne({ twitter_id: twitterId }))
+    (await UserDAL.exists(twitterId)) ||
+    (await TrackingDAL.exists(twitterId))
   ) {
     console.log(
       `User ${newTrackingUser.screen_name} already in user/tracking collection`
     );
-    await autoTrackingCollection.updateOne(
-      { _id: newTrackingUser._id },
-      { $set: { status: "completed" } }
-    );
+    await AutoTrackingDAL.updateStatus(newTrackingUser._id, "completed");
     return;
   }
 
   const data: any[] = await getAndUpdateAllFriends(twitterId);
-
-  const rawCollection: Collection<RawDataTwitterUserFriends> = db.collection(
-    "RawData_TwitterUser_Friends"
-  );
-  await rawCollection.updateOne(
-    { user_id: twitterId },
-    {
-      $set: {
-        screen_name: newTrackingUser.screen_name,
-        data: data,
-      },
-    },
-    { upsert: true }
+  await RawDataTwitterUserFriendsDAL.upsert(
+    twitterId,
+    newTrackingUser.screen_name,
+    data
   );
 
-  await autoTrackingCollection.updateOne(
-    { _id: newTrackingUser._id },
-    { $set: { status: "completed" } }
-  );
+  await AutoTrackingDAL.updateStatus(newTrackingUser._id, "completed");
 }
 
 async function getAndUpdateAllFriends(userId: string): Promise<any[]> {
@@ -103,8 +69,13 @@ async function getAndUpdateAllFriends(userId: string): Promise<any[]> {
           const name: string = result.legacy.name;
           const avatarUrl: string = result.legacy.profile_image_url_https;
 
-          await AddTwitterAccount(friendId, screenName, name, avatarUrl);
-          await AddRelation(userId, friendId);
+          await TwitterAccountDAL.AddTwitterAccount(
+            friendId,
+            screenName,
+            name,
+            avatarUrl
+          );
+          await RelationDAL.AddRelation(userId, friendId);
         } catch (e: any) {
           if (record.content?.itemContent?.user_results?.result) {
             const timestamp = DateTime.now().toFormat("yyyy-MM-dd HH:mm:ss");
@@ -181,52 +152,6 @@ async function makeApiRequest(
         next_cursor: null,
       };
     }
-  }
-}
-
-async function AddTwitterAccount(
-  userId: string,
-  screenName: string,
-  name: string,
-  avatarUrl: string
-): Promise<void> {
-  const db: Db = client.db("CoinseekerETL");
-  const twitterAccountCollection: Collection<TwitterAccount> =
-    db.collection("TwitterAccount");
-
-  await twitterAccountCollection.updateOne(
-    { user_id: userId },
-    {
-      $set: {
-        screen_name: screenName,
-        avatar_url: avatarUrl,
-        name: name,
-      },
-      $setOnInsert: { status: "new" },
-    },
-    { upsert: true }
-  );
-}
-
-async function AddRelation(userId: string, friendId: string): Promise<void> {
-  const db: Db = client.db("CoinseekerETL");
-  const relationCollection: Collection<TwitterAccountFollowing> = db.collection(
-    "TwitterAccountFollowing"
-  );
-
-  const existingDocument: TwitterAccountFollowing | null =
-    await relationCollection.findOne({
-      user_id: userId,
-      following_id: friendId,
-    });
-
-  if (!existingDocument) {
-    const document: TwitterAccountFollowing = {
-      _id: new ObjectId(),
-      user_id: userId,
-      following_id: friendId,
-    };
-    await relationCollection.insertOne(document);
   }
 }
 

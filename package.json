@@ -5,13 +5,13 @@
   "type": "module",
   "scripts": {
     "test": "npx tsx src/index/test.js",
-    "following": "npx tsx src/get_following/get_following.ts",
+    "following": "npx tsx src/get-following/get-following.ts",
     "daily": "npx tsx src/daily-update/daily-update-user.ts",
     "daily-kol": "npx tsx src/daily-update/daily-update-kol.ts",
-    "auto": "npx tsx src/get_tracking_following/get_auto.ts",
+    "auto": "npx tsx src/get-tracking-following/get-auto.ts",
     "index": "npx tsx src/index/index.ts",
     "load": "npx tsx src/load/load.ts",
-    "load-relation": "npx tsx src/load/load_relation.ts"
+    "load-relation": "npx tsx src/load/load-relation.ts"
   },
   "author": "",
   "license": "ISC",
