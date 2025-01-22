@@ -2,7 +2,7 @@ import { getMongoConnection } from "../common/connection/mongo-connection";
 import { TwitterAccount, Relation } from "../common/models/mongo-models";
 import { ObjectId } from "mongodb";
 
-const client = getMongoConnection();
+const client = await getMongoConnection();
 const db = client.db(process.env.MONGO_DB_NAME);
 
 export const TwitterAccountDAL = {

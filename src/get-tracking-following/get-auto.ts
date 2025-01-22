@@ -2,8 +2,6 @@ import { setTimeout as sleep } from "timers/promises";
 import * as fs from "fs";
 import { DateTime } from "luxon";
 import { makeGetRequest } from "../twitter-controller/rotate-account.js";
-import { getMongoConnection } from "../common/connection/mongo-connection.js";
-import { getPostgreConnection } from "../common/connection/postgre-connection.js";
 import { APIResponse } from "../common/models/api-models.js";
 import {
   AutoTrackingDAL,
@@ -13,16 +11,14 @@ import {
   UserDAL,
   RawDataTwitterUserFriendsDAL,
 } from "./mongo-dal.js";
-const pool = getPostgreConnection();
-const client = getMongoConnection();
 
 async function botFunc(): Promise<void> {
   let newTrackingUser = await AutoTrackingDAL.getNewRecord();
   console.log(`Processing user ${newTrackingUser.screen_name}`);
   const twitterId: string = newTrackingUser.twitter_id;
   if (
-    (await UserDAL.exists(twitterId)) ||
-    (await TrackingDAL.exists(twitterId))
+    (await UserDAL.isExists(twitterId)) ||
+    (await TrackingDAL.isExists(twitterId))
   ) {
     console.log(
       `User ${newTrackingUser.screen_name} already in user/tracking collection`
@@ -162,13 +158,10 @@ async function main(): Promise<void> {
       await botFunc();
       console.log(`process completed, retry in next ${delay}s`);
       await sleep(delay * 1000);
-    } catch (e: any) {
-      console.error(`Error when processing ${e}: ${e.stack}`);
-      break;
+    } catch (error: any) {
+      console.error("An error occurred:", error);
     }
   }
-  client.close();
-  pool.end();
 }
 
 main();

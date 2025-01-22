@@ -1,4 +1,7 @@
-import { getMongoConnection } from "../common/connection/mongo-connection"; // Assuming you use an ODM or create a DAL
+import {
+  getMongoConnection,
+  isMongoAvailable,
+} from "../common/connection/mongo-connection"; // Assuming you use an ODM or create a DAL
 import {
   TwitterAccount,
   Relation,
@@ -6,11 +9,12 @@ import {
 } from "../common/models/mongo-models";
 import { ObjectId } from "mongodb";
 
-const client = getMongoConnection();
-const db = client.db(process.env.MONGO_DB_NAME);
+let client =await  getMongoConnection();
+let db = client.db(process.env.MONGO_DB_NAME);
 
 export const TwitterAccountDAL = {
   async upsert(account: TwitterAccount): Promise<void> {
+    validateConnection();
     const twitterAccountCollection =
       db.collection<TwitterAccount>("TwitterAccount");
     await twitterAccountCollection.updateOne(
@@ -30,6 +34,7 @@ export const TwitterAccountDAL = {
 
 export const RelationDAL = {
   async add(relation: Relation): Promise<void> {
+    validateConnection();
     const relationCollection = db.collection<Relation>(
       "TwitterAccountFollowing"
     );
@@ -44,6 +49,7 @@ export const RelationDAL = {
 };
 export const AutoTrackingDAL = {
   async upsert(autoTracking: AutoTracking): Promise<void> {
+    validateConnection();
     const userCollection = db.collection<AutoTracking>("AutoTracking");
     await userCollection.updateOne(
       { twitter_id: autoTracking.twitter_id },
@@ -60,6 +66,7 @@ export const AutoTrackingDAL = {
 };
 export const RawDataDAL = {
   async upsert(userId: string, screenName: string, data: any): Promise<void> {
+    validateConnection();
     const rawCollection = db.collection("RawData_TwitterUser_Friends");
     await rawCollection.updateOne(
       { user_id: userId },
@@ -77,12 +84,14 @@ export const RawDataDAL = {
 export const UserDAL = {
   // other code
   async getRecentlyAddedUser(): Promise<any> {
+    validateConnection();
     const userCollection = db.collection("User");
     const recentlyAddedUser = await userCollection.findOne({ status: "new" });
     return recentlyAddedUser;
   },
 
   async updateUserStatus(mongoId: ObjectId, status: string): Promise<void> {
+    validateConnection();
     const userCollection = db.collection("User");
     await userCollection.updateOne(
       { _id: mongoId },
@@ -94,3 +103,10 @@ export const UserDAL = {
     );
   },
 };
+
+async function validateConnection() {
+  if (!client || !isMongoAvailable(client)) {
+    client = await getMongoConnection();
+    db = client.db(process.env.MONGO_DB_NAME);
+  }
+}

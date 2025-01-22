@@ -1,12 +1,15 @@
-import { Db, Collection, ObjectId } from "mongodb";
+import { Db, Collection, ObjectId, MongoClient } from "mongodb";
 import { PoolClient } from "pg";
 import { setTimeout as sleep } from "timers/promises";
 import { DateTime } from "luxon";
 
-import { getMongoConnection } from "../common/connection/mongo-connection";
+import {
+  getMongoConnection,
+  isMongoAvailable,
+} from "../common/connection/mongo-connection";
 
 import { getPostgreConnection } from "../common/connection/postgre-connection";
-const pool = getPostgreConnection();
+let pool = getPostgreConnection();
 
 interface TwitterAccountDocument {
   _id: ObjectId;
@@ -18,7 +21,7 @@ interface TwitterAccountDocument {
   error?: string;
 }
 
-const client = getMongoConnection();
+let client = await getMongoConnection();
 
 async function insertQuery(
   userId: string | number,
@@ -115,11 +118,29 @@ async function main(): Promise<void> {
       await sleep(delay * 1000);
     } catch (error) {
       console.error("An error occurred:", error);
-      break;
+      // Attempt to reconnect to client and pool if not valid
+      if (!isMongoAvailable(client)) {
+        try {
+          client = await getMongoConnection();
+          console.log("Mongo reconnection successful.");
+        } catch (mongoReconnectError) {
+          console.error("Failed to reconnect to MongoDB:", mongoReconnectError);
+        }
+      }
+
+      if (!pool) {
+        try {
+          pool = getPostgreConnection();
+          console.log("PostgreSQL reconnection successful.");
+        } catch (postgreReconnectError) {
+          console.error(
+            "Failed to reconnect to PostgreSQL:",
+            postgreReconnectError
+          );
+        }
+      }
     }
   }
-  client.close();
-  pool.end();
 }
 
 main();

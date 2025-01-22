@@ -189,8 +189,8 @@ async function main() {
       await botFunction();
       console.log(`process completed, retry in next ${delay}s`);
       await new Promise((resolve) => setTimeout(resolve, delay * 1000));
-    } catch {
-      break;
+    } catch (e) {
+      console.log(`Error occure:` + e);
     }
   }
 }

@@ -2,7 +2,7 @@ import { Collection, Document } from "mongodb";
 
 import { getMongoConnection } from "../common/connection/mongo-connection";
 import { getPostgreConnection } from "../common/connection/postgre-connection";
-const pool=getPostgreConnection()
+const pool = getPostgreConnection();
 interface User {
   twitter_id: string;
   screen_name: string;
@@ -42,8 +42,9 @@ async function loadUserFromCoinseeker(): Promise<User[]> {
   }
 }
 
-async function main(): Promise<void> {``
-  const mongoClient = getMongoConnection();
+async function main(): Promise<void> {
+  ``;
+  const mongoClient = await getMongoConnection();
   const db = mongoClient.db("CoinseekerETL");
   userCollection = db.collection("User");
   const delay = 1;
@@ -55,12 +56,8 @@ async function main(): Promise<void> {``
       await new Promise((resolve) => setTimeout(resolve, delay * 1000));
     } catch (error) {
       console.error("An error occurred:", error);
-      break;
     }
   }
-
-  await pool.end();
-  await mongoClient.close();
 }
 
-main().catch(console.error);
+main();

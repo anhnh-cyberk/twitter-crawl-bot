@@ -6,7 +6,7 @@ import {
   TwitterAccountFollowing
 } from "../common/models/mongo-models.js";
 
-const client = getMongoConnection();
+const client = await getMongoConnection();
 const db = client.db(process.env.MONGO_DB_NAME);
 
 export const AutoTrackingDAL = {
@@ -86,7 +86,7 @@ export const RelationDAL = {
   },
 };
 export const TrackingDAL = {
-  async existed(twitterId: string): Promise<boolean> {
+  async isExists(twitterId: string): Promise<boolean> {
     const trackingCollection = db.collection("Tracking");
     const record = await trackingCollection.findOne({ twitter_id: twitterId });
     return record ? true : false;
@@ -94,7 +94,7 @@ export const TrackingDAL = {
 };
 
 export const UserDAL = {
-  async existed(twitterId: string): Promise<boolean> {
+  async isExists(twitterId: string): Promise<boolean> {
     const trackingCollection = db.collection("User");
     const record = await trackingCollection.findOne({ twitter_id: twitterId });
     return record ? true : false;
@@ -102,7 +102,7 @@ export const UserDAL = {
 };
 
 export const KOLDal = {
-  async existed(twitterId: string): Promise<boolean> {
+  async isExists(twitterId: string): Promise<boolean> {
     const trackingCollection = db.collection("TwitterKOL");
     const record = await trackingCollection.findOne({ user_id: twitterId });
     return record ? true : false;
