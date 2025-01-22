@@ -1,4 +1,7 @@
-import { getMongoConnection } from "../common/connection/mongo-connection";
+import {
+  getMongoConnection,
+  withConnectionRetry,
+} from "../common/connection/mongo-connection";
 import { TwitterAccount, Relation } from "../common/models/mongo-models";
 import { ObjectId } from "mongodb";
 
@@ -7,109 +10,122 @@ const db = client.db(process.env.MONGO_DB_NAME);
 
 export const TwitterAccountDAL = {
   async upsert(account: TwitterAccount): Promise<void> {
-    const twitterAccountCollection =
-      db.collection<TwitterAccount>("TwitterAccount");
-    await twitterAccountCollection.updateOne(
-      { user_id: account.user_id },
-      {
-        $set: {
-          screen_name: account.screen_name,
-          avatar_url: account.avatar_url,
-          name: account.name,
+    return withConnectionRetry(async () => {
+      const twitterAccountCollection =
+        db.collection<TwitterAccount>("TwitterAccount");
+      await twitterAccountCollection.updateOne(
+        { user_id: account.user_id },
+        {
+          $set: {
+            screen_name: account.screen_name,
+            avatar_url: account.avatar_url,
+            name: account.name,
+          },
+          $setOnInsert: { status: "new" },
         },
-        $setOnInsert: { status: "new" },
-      },
-      { upsert: true }
-    );
+        { upsert: true }
+      );
+    });
   },
 };
 
 export const RelationDAL = {
   async add(relation: Relation): Promise<boolean> {
-    let existed = false;
-    const relationCollection = db.collection<Relation>(
-      "TwitterAccountFollowing"
-    );
-    const existingDocument = await relationCollection.findOne({
-      user_id: relation.user_id,
-      following_id: relation.following_id,
+    return withConnectionRetry(async () => {
+      let existed = false;
+      const relationCollection = db.collection<Relation>(
+        "TwitterAccountFollowing"
+      );
+      const existingDocument = await relationCollection.findOne({
+        user_id: relation.user_id,
+        following_id: relation.following_id,
+      });
+      if (!existingDocument) {
+        await relationCollection.insertOne(relation);
+      } else {
+        existed = true;
+      }
+      return existed;
     });
-    if (!existingDocument) {
-      await relationCollection.insertOne(relation);
-    } else {
-      existed = true;
-    }
-    return existed;
   },
 };
 
 export const RawDataDAL = {
   async upsert(userId: string, screenName: string, data: any): Promise<void> {
-    const rawCollection = db.collection("RawData_TwitterUser_Friends");
-    await rawCollection.updateOne(
-      { user_id: userId },
-      {
-        $set: {
-          screen_name: screenName,
-          data: data,
+    return withConnectionRetry(async () => {
+      const rawCollection = db.collection("RawData_TwitterUser_Friends");
+      await rawCollection.updateOne(
+        { user_id: userId },
+        {
+          $set: {
+            screen_name: screenName,
+            data: data,
+          },
         },
-      },
-      { upsert: true }
-    );
+        { upsert: true }
+      );
+    });
   },
 };
 
 export const UserDAL = {
   // other code
   async getOldRecord(): Promise<any> {
-    const userCollection = db.collection("User");
-    const record = await userCollection.findOne({
-      $or: [
-        { scannedAt: null },
-        { scannedAt: { $exists: false } },
-        { scannedAt: { $lt: getYesterdayDate().setHours(0, 0, 0, 0) } },
-      ],
+    return withConnectionRetry(async () => {
+      const userCollection = db.collection("User");
+      const record = await userCollection.findOne({
+        $or: [
+          { scannedAt: null },
+          { scannedAt: { $exists: false } },
+          { scannedAt: { $lt: getYesterdayDate().setHours(0, 0, 0, 0) } },
+        ],
+      });
+      return record;
     });
-    return record;
   },
-
   async updateScannedAt(mongoId: ObjectId): Promise<void> {
-    const userCollection = db.collection("User");
-    await userCollection.updateOne(
-      { _id: mongoId },
-      {
-        $set: {
-          scannedAt: new Date().toISOString(),
-        },
-      }
-    );
+    return withConnectionRetry(async () => {
+      const userCollection = db.collection("User");
+      await userCollection.updateOne(
+        { _id: mongoId },
+        {
+          $set: {
+            scannedAt: new Date().toISOString(),
+          },
+        }
+      );
+    });
   },
 };
 
 export const KolDAL = {
   // other code
   async getOldRecord(): Promise<any> {
-    const kolCollection = db.collection("TwitterKOL");
-    const record = await kolCollection.findOne({
-      $or: [
-        { scannedAt: null },
-        { scannedAt: { $exists: false } },
-        { scannedAt: { $lt: getYesterdayDate().setHours(0, 0, 0, 0) } },
-      ],
+    return withConnectionRetry(async () => {
+      const kolCollection = db.collection("TwitterKOL");
+      const record = await kolCollection.findOne({
+        $or: [
+          { scannedAt: null },
+          { scannedAt: { $exists: false } },
+          { scannedAt: { $lt: getYesterdayDate().setHours(0, 0, 0, 0) } },
+        ],
+      });
+      return record;
     });
-    return record;
   },
 
   async updateScannedAt(mongoId: ObjectId): Promise<void> {
-    const userCollection = db.collection("TwitterKOL");
-    await userCollection.updateOne(
-      { _id: mongoId },
-      {
-        $set: {
-          scannedAt: new Date().toISOString(),
-        },
-      }
-    );
+    return withConnectionRetry(async () => {
+      const userCollection = db.collection("TwitterKOL");
+      await userCollection.updateOne(
+        { _id: mongoId },
+        {
+          $set: {
+            scannedAt: new Date().toISOString(),
+          },
+        }
+      );
+    });
   },
 };
 

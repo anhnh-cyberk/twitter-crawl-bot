@@ -1,14 +1,19 @@
 import { Collection, Document } from "mongodb";
 
-import { getMongoConnection } from "../common/connection/mongo-connection";
+import {
+  getMongoConnection,
+  isMongoAvailable,
+} from "../common/connection/mongo-connection";
 import { getPostgreConnection } from "../common/connection/postgre-connection";
 const pool = getPostgreConnection();
 interface User {
   twitter_id: string;
   screen_name: string;
 }
+let mongoClient = await getMongoConnection();
+let db = mongoClient.db("CoinseekerETL");
+let userCollection = db.collection("User");
 
-let userCollection: Collection<Document>;
 // Initialize MongoDB client
 
 async function insertNewUserToLake(userList: User[]): Promise<void> {
@@ -43,10 +48,6 @@ async function loadUserFromCoinseeker(): Promise<User[]> {
 }
 
 async function main(): Promise<void> {
-  ``;
-  const mongoClient = await getMongoConnection();
-  const db = mongoClient.db("CoinseekerETL");
-  userCollection = db.collection("User");
   const delay = 1;
   while (true) {
     try {
@@ -56,8 +57,15 @@ async function main(): Promise<void> {
       await new Promise((resolve) => setTimeout(resolve, delay * 1000));
     } catch (error) {
       console.error("An error occurred:", error);
+      validateConnection();
     }
   }
 }
 
+async function validateConnection() {
+  if (!mongoClient || !isMongoAvailable(mongoClient)) {
+    mongoClient = await getMongoConnection();
+    db = mongoClient.db(process.env.MONGO_DB_NAME);
+  }
+}
 main();
