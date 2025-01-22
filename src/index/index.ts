@@ -1,5 +1,3 @@
-import { Collection, Document } from "mongodb";
-
 import {
   getMongoConnection,
   isMongoAvailable,
@@ -10,10 +8,9 @@ interface User {
   twitter_id: string;
   screen_name: string;
 }
-let mongoClient = await getMongoConnection();
-let db = mongoClient.db("CoinseekerETL");
-let userCollection = db.collection("User");
-
+let mongoClient;
+let db;
+let userCollection;
 // Initialize MongoDB client
 
 async function insertNewUserToLake(userList: User[]): Promise<void> {
@@ -48,6 +45,9 @@ async function loadUserFromCoinseeker(): Promise<User[]> {
 }
 
 async function main(): Promise<void> {
+  mongoClient = await getMongoConnection();
+  db = mongoClient.db("CoinseekerETL");
+  userCollection = db.collection("User");
   const delay = 1;
   while (true) {
     try {

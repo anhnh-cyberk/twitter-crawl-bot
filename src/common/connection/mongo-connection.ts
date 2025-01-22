@@ -57,6 +57,7 @@ export async function getMongoConnection() {
     connectionStatus = "connected";
     retryCount = 0; // Reset on successful connection
     console.log("MongoDB connected successfully.");
+    return client;
   } catch (err) {
     console.error(`MongoDB connection attempt ${retryCount} failed:`, err);
     connectionStatus = "disconnected";
