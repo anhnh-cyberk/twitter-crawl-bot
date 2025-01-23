@@ -45,8 +45,9 @@ async function insertNewUserToLake(userList: User[]): Promise<void> {
 }
 
 async function loadUserFromCoinseeker(): Promise<User[]> {
+  let client;
   try {
-    const client = await pool.connect();
+    client = await pool.connect();
     const result = await client.query(
       'SELECT twitter_id, screen_name FROM public."User"'
     );
@@ -56,11 +57,15 @@ async function loadUserFromCoinseeker(): Promise<User[]> {
   } catch (error) {
     console.error("Error getting data:", error);
     return [];
+  } finally {
+    if (client) {
+      client.release(); // Release the connection back to the pool
+    }
   }
 }
 
 async function main() {
-  const delay = 1;
+  const delay = 2;
   while (true) {
     try {
       const userList = await loadUserFromCoinseeker();

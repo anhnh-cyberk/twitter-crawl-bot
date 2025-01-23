@@ -32,13 +32,13 @@ async function insertQuery(
   const now: DateTime = DateTime.now();
   const formattedDatetime: string = now.toFormat("yyyy-MM-dd HH:mm:ss.SSS");
   let error: string = "";
-  let client: PoolClient | null = null;
+  let postgreClient: PoolClient | null = null;
 
   try {
-    client = await pool.connect();
+    postgreClient = await pool.connect();
     const query: string =
       'INSERT INTO public."TwitterAccount" (id, screen_name, "name", avatar_url, "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, $5, $6)';
-    await client.query(query, [
+    await postgreClient.query(query, [
       userId,
       screenName,
       name,
@@ -46,16 +46,16 @@ async function insertQuery(
       formattedDatetime,
       formattedDatetime,
     ]);
-    await client.query("COMMIT");
+    await postgreClient.query("COMMIT");
   } catch (e) {
     console.error(`Error inserting data: ${e}`);
     error = `Error: ${e}`;
-    if (client) {
-      await client.query("ROLLBACK");
+    if (postgreClient) {
+      await postgreClient.query("ROLLBACK");
     }
   } finally {
-    if (client) {
-      client.release();
+    if (postgreClient) {
+      postgreClient.release();
     }
   }
   return error;

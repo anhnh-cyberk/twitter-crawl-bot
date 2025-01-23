@@ -128,12 +128,10 @@ async function getAndProcessAllPage(userId: string): Promise<any[]> {
           needFetchMore = false;
           console.log(`All follower of ${userId} has been added`);
           break;
-        } else {
-          allRecords.push(record);
         }
       }
 
-      // allRecords.push(...data);
+      allRecords.push(...data);
       cursor = nextCursor;
     } catch (error) {
       if (error instanceof AuthorizationError) {
@@ -175,6 +173,7 @@ async function botFunction() {
   const data = await getAndProcessAllPage(oldRecord.user_id);
 
   await RawDataDAL.upsert(oldRecord.user_id, oldRecord.screen_name, data);
+
   await KolDAL.updateScannedAt(oldRecord._id);
 }
 
@@ -209,9 +208,9 @@ async function botFunctionBatch() {
   if (successfulKolIds.length > 0) {
     await KolDAL.batchUpdateScannedAt(successfulKolIds);
   }
-  // if (errorRecords.length > 0) {
-  //   await KolDAL.batchUpdateErrorCode(errorRecords);
-  // }
+  if (errorRecords.length > 0) {
+    // await KolDAL.batchUpdateErrorCode(errorRecords);
+  }
 
   console.log(
     `Successfully processed ${successfulKolIds.length}/${oldRecords.length} KOLs`
@@ -219,7 +218,7 @@ async function botFunctionBatch() {
 }
 
 async function confinuouslyUpdate() {
-  const delay = Math.floor(Math.random() * 3) + 2;
+  const delay = 10;
   while (true) {
     try {
       await botFunction();
@@ -240,8 +239,7 @@ async function batchUpdate() {
 }
 
 async function main() {
-  // setInterval(batchUpdate, 86400000); // 86400000 milliseconds = 24 hours
-  await confinuouslyUpdate();
+  setInterval(batchUpdate, 86400000); // 86400000 milliseconds = 24 hours
 }
 
 main();

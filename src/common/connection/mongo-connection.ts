@@ -1,13 +1,13 @@
-import { MongoClient, Db } from "mongodb";
+import { MongoClient } from "mongodb";
 import * as dotenv from "dotenv";
 dotenv.config();
 
 let client: MongoClient | null = null;
 let connectionStatus = "disconnected";
 let connectionError = null;
-// let retryCount = 0;
-// const maxRetries = 3; // Or configure from environment
-// const retryDelay = 2000; // Milliseconds
+let retryCount = 0;
+const maxRetries = 3; // Or configure from environment
+const retryDelay = 2000; // Milliseconds
 
 export async function getMongoConnection() {
   try {
@@ -15,14 +15,14 @@ export async function getMongoConnection() {
       return client;
     }
 
-    // if (connectionStatus === "connecting" || retryCount >= maxRetries) {
-    //   console.log("MongoDB connection is already being established.");
-    //   return client;
-    // }
+    if (connectionStatus === "connecting" || retryCount >= maxRetries) {
+      console.log("MongoDB connection is already being established.");
+      return client;
+    }
 
-    // connectionStatus = "connecting";
-    // connectionError = null;
-    // retryCount++;
+    connectionStatus = "connecting";
+    connectionError = null;
+    retryCount++;
 
     const mongo_host = process.env.MONGO_HOST;
     const mongo_port = process.env.MONGO_PORT || 27017;
@@ -37,19 +37,19 @@ export async function getMongoConnection() {
       .catch((error) =>
         console.error("MongoDB client connection error:", error)
       );
-    // newClient.on("close", () => {
-    //   console.warn("MongoDB connection closed unexpectedly.");
-    //   connectionStatus = "disconnected";
-    //   client = null;
-    //   connectionError = "Connection closed";
-    // });
+    newClient.on("close", () => {
+      console.warn("MongoDB connection closed unexpectedly.");
+      connectionStatus = "disconnected";
+      client = null;
+      connectionError = "Connection closed";
+    });
 
-    // newClient.on("error", (err) => {
-    //   console.error("MongoDB connection error:", err);
-    //   connectionStatus = "disconnected";
-    //   client = null;
-    //   connectionError = err.message || "Connection error";
-    // });
+    newClient.on("error", (err) => {
+      console.error("MongoDB connection error:", err);
+      connectionStatus = "disconnected";
+      client = null;
+      connectionError = err.message || "Connection error";
+    });
     client = newClient;
     connectionStatus = "connected";
     // retryCount = 0; // Reset on successful connection
@@ -60,13 +60,13 @@ export async function getMongoConnection() {
     connectionStatus = "disconnected";
     connectionError = err.message || "Failed to connect to MongoDB";
 
-    // if (retryCount < maxRetries) {
-    //   await new Promise((resolve) => setTimeout(resolve, retryDelay));
-    //   return getMongoConnection(); // Recursive retry
-    // } else {
-    //   console.error("Max retries reached. Giving up on MongoDB connection.");
-    //   throw new Error(connectionError);
-    // }
+    if (retryCount < maxRetries) {
+      await new Promise((resolve) => setTimeout(resolve, retryDelay));
+      return getMongoConnection(); // Recursive retry
+    } else {
+      console.error("Max retries reached. Giving up on MongoDB connection.");
+      throw new Error(connectionError);
+    }
   }
 }
 export async function isMongoAvailable(client: MongoClient): Promise<boolean> {
@@ -81,7 +81,7 @@ export async function isMongoAvailable(client: MongoClient): Promise<boolean> {
 
 export async function withConnectionRetry(fn) {
   const maxRetries = 3;
-  const retryDelay = 1000;
+  const retryDelay = 2000;
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {

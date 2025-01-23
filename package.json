@@ -11,7 +11,8 @@
     "auto": "npx tsx src/get-tracking-following/get-auto.ts",
     "index": "npx tsx src/index/index.ts",
     "load": "npx tsx src/load/load.ts",
-    "load-relation": "npx tsx src/load/load-relation.ts"
+    "load-relation": "npx tsx src/load/load-relation.ts",
+    "get-all-kols": "npx tsx src/script/get-all-following-kols.ts"
   },
   "author": "",
   "license": "ISC",

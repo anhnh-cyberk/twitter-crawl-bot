@@ -70,7 +70,7 @@ async function fetchOnePage(
 }
 
 //insert friend record, return true if already existed
-async function processOneRecord(userId: string, record: any): Promise<boolean> {
+async function processOneRecord(userId: string, record: any) {
   try {
     const friendId = record.content.itemContent.user_results.result.rest_id;
     const screenName =
@@ -87,11 +87,10 @@ async function processOneRecord(userId: string, record: any): Promise<boolean> {
       name,
       avatar_url: avatarUrl,
     });
-    let relationExisted = await RelationDAL.add({
+    await RelationDAL.add({
       user_id: userId,
       following_id: friendId,
     });
-    return relationExisted;
   } catch (e: any) {
     console.error(
       `Error processing friend record for userId: ${userId}, Record: ${JSON.stringify(
@@ -105,32 +104,27 @@ async function processOneRecord(userId: string, record: any): Promise<boolean> {
         record
       )}, Error: ${e.message}\n`
     );
-    return false;
   }
 }
 
 async function getAndProcessAllPage(userId: string): Promise<any[]> {
   const allRecords: any[] = [];
   let cursor: string | null = "";
-  let loop = 0;
+  let loopCount = 0;
   const MAX_RECORD_COUNT = 1000;
   let needFetchMore = true;
+
   while (needFetchMore) {
-    loop += 1;
+    loopCount += 1;
+    console.log("loop:", loopCount);
     try {
       const delay = 10;
       await new Promise((resolve) => setTimeout(resolve, delay * 1000));
       const { data, nextCursor } = await fetchOnePage(userId, cursor);
 
       for (const record of data) {
-        const existed = await processOneRecord(userId, record);
-        if (existed) {
-          needFetchMore = false;
-          console.log(`All follower of ${userId} has been added`);
-          break;
-        } else {
-          allRecords.push(record);
-        }
+        await processOneRecord(userId, record);
+        allRecords.push(record);
       }
 
       // allRecords.push(...data);
@@ -178,46 +172,6 @@ async function botFunction() {
   await KolDAL.updateScannedAt(oldRecord._id);
 }
 
-async function botFunctionBatch() {
-  const oldRecords = await KolDAL.getAllOldRecords();
-  if (!oldRecords || oldRecords.length === 0) {
-    console.log("No kols need updated");
-    return;
-  }
-
-  console.log(`Found ${oldRecords.length} KOLs to update`);
-  const successfulKolIds: string[] = [];
-  const errorRecords: any[] = [];
-
-  for (const oldRecord of oldRecords) {
-    try {
-      console.log(`Processing KOL: ${oldRecord.screen_name}`);
-      const data = await getAndProcessAllPage(oldRecord.user_id);
-      await RawDataDAL.upsert(oldRecord.user_id, oldRecord.screen_name, data);
-      successfulKolIds.push(oldRecord._id);
-    } catch (error) {
-      console.error(`Failed to process KOL ${oldRecord.screen_name}:`, error);
-      // Could add error logging or retry logic here
-      errorRecords.push({
-        id: oldRecord.user_id,
-        error: error.message,
-        stack: error.stack,
-      });
-    }
-  }
-
-  if (successfulKolIds.length > 0) {
-    await KolDAL.batchUpdateScannedAt(successfulKolIds);
-  }
-  // if (errorRecords.length > 0) {
-  //   await KolDAL.batchUpdateErrorCode(errorRecords);
-  // }
-
-  console.log(
-    `Successfully processed ${successfulKolIds.length}/${oldRecords.length} KOLs`
-  );
-}
-
 async function confinuouslyUpdate() {
   const delay = Math.floor(Math.random() * 3) + 2;
   while (true) {
@@ -228,14 +182,6 @@ async function confinuouslyUpdate() {
     } catch {
       break;
     }
-  }
-}
-async function batchUpdate() {
-  while (true) {
-    await botFunctionBatch();
-    console.log(`Process completed, retry in next 24hrs`);
-    const delayInMilliseconds = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
-    await new Promise((resolve) => setTimeout(resolve, delayInMilliseconds));
   }
 }
 
