@@ -209,9 +209,9 @@ async function botFunctionBatch() {
   if (successfulKolIds.length > 0) {
     await KolDAL.batchUpdateScannedAt(successfulKolIds);
   }
-  // if (errorRecords.length > 0) {
-  //   await KolDAL.batchUpdateErrorCode(errorRecords);
-  // }
+  if (errorRecords.length > 0) {
+    await KolDAL.batchUpdateErrorCode(errorRecords);
+  }
 
   console.log(
     `Successfully processed ${successfulKolIds.length}/${oldRecords.length} KOLs`

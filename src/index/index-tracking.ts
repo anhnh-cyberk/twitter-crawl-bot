@@ -1,15 +1,8 @@
-import { getMongoConnection } from "../common/connection/mongo-connection";
 import { getPostgreConnection } from "../common/connection/postgre-connection";
 import { MongoClient } from "mongodb";
 const pool = getPostgreConnection();
-interface User {
-  twitter_id: string;
-  screen_name: string;
-}
 
-// Initialize MongoDB client
-
-async function insertNewUserToLake(userList: User[]): Promise<void> {
+async function insertNewUserToLake(trackingList: string[]): Promise<void> {
   const mongo_host = process.env.MONGO_HOST;
   const mongo_port = process.env.MONGO_PORT || 27017;
   const mongo_user = process.env.MONGO_USER; // Your application's MongoDB username
@@ -22,18 +15,12 @@ async function insertNewUserToLake(userList: User[]): Promise<void> {
     .then(() => console.log("MongoDB client connected successfully"))
     .catch((error) => console.error("MongoDB client connection error:", error));
   let db = mongoClient.db("CoinseekerETL");
-  let userCollection = db.collection("User");
+  let trackingCollection = db.collection("Tracking");
   try {
-    for (const user of userList) {
-      // console.log(user[1]);
-      await userCollection.updateOne(
-        { twitter_id: user.twitter_id },
-        {
-          $set: {
-            screen_name: user.screen_name,
-          },
-          $setOnInsert: { status: "new" },
-        },
+    for (const userId of trackingList) {
+      await trackingCollection.updateOne(
+        { twitter_id: userId },
+        { $setOnInsert: { twitter_id: userId } },
         { upsert: true }
       );
     }
@@ -44,16 +31,25 @@ async function insertNewUserToLake(userList: User[]): Promise<void> {
   }
 }
 
-async function loadUserFromCoinseeker(): Promise<User[]> {
+async function loadTrackingFromCoinseeker(): Promise<string[]> {
   let client;
   try {
     client = await pool.connect();
     const result = await client.query(
-      'SELECT twitter_id, screen_name FROM public."User"'
+      `SELECT distinct "twitterAccountId" FROM public."Tracking"`
     );
-    const userList: User[] = result.rows;
-    console.log("User List:", userList);
-    return userList;
+    const trackingList: string[] = result.rows
+      .map((item) => {
+        try {
+          return item.twitterAccountId;
+        } catch (error) {
+          console.error("Error mapping item:", error);
+          return null;
+        }
+      })
+      .filter(Boolean);
+    console.log("Tracking List:", trackingList);
+    return trackingList;
   } catch (error) {
     console.error("Error getting data:", error);
     return [];
@@ -65,11 +61,11 @@ async function loadUserFromCoinseeker(): Promise<User[]> {
 }
 
 async function main() {
-  const delay = 2;
+  const delay = 30;
   while (true) {
     try {
-      const userList = await loadUserFromCoinseeker();
-      await insertNewUserToLake(userList);
+      const trackingList = await loadTrackingFromCoinseeker();
+      await insertNewUserToLake(trackingList);
       console.log(`Process completed, retry in next ${delay}s`);
       await new Promise((resolve) => setTimeout(resolve, delay * 1000));
     } catch (error) {
@@ -78,14 +74,4 @@ async function main() {
   }
 }
 
-// async function validateConnection() {
-//   try {
-//     if (!mongoClient || !isMongoAvailable(mongoClient)) {
-//       mongoClient = await getMongoConnection();
-//       db = mongoClient.db(process.env.MONGO_DB_NAME);
-//     }
-//   } catch (e) {
-//     console.log("Error when validate connection:" + e);
-//   }
-// }
 main();

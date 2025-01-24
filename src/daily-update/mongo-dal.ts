@@ -68,6 +68,36 @@ export const RawDataDAL = {
   },
 };
 
+export const TrackingDAL = {
+  // other code
+  async getOldRecord(): Promise<any> {
+    return withConnectionRetry(async () => {
+      const userCollection = db.collection("Tracking");
+      const record = await userCollection.findOne({
+        $or: [
+          { scannedAt: null },
+          { scannedAt: { $exists: false } },
+          { scannedAt: { $lt: getYesterdayDate().setHours(0, 0, 0, 0) } },
+        ],
+      });
+      return record;
+    });
+  },
+  async updateScannedAt(mongoId: ObjectId): Promise<void> {
+    return withConnectionRetry(async () => {
+      const userCollection = db.collection("Tracking");
+      await userCollection.updateOne(
+        { _id: mongoId },
+        {
+          $set: {
+            scannedAt: new Date().toISOString(),
+          },
+        }
+      );
+    });
+  },
+};
+
 export const UserDAL = {
   // other code
   async getOldRecord(): Promise<any> {
@@ -151,9 +181,18 @@ export const KolDAL = {
     const kolCollection = db.collection("TwitterKOL");
     await kolCollection.updateMany(
       { user_id: { $in: kolIds } },
-      { $set: { scanned_at: now } }
+      { $set: { scanned_at: now, error: undefined } }
     );
   },
+  async batchUpdateErrorCode(kolIds: string[]) {
+    const now = new Date();
+    const kolCollection = db.collection("TwitterKOL");
+    await kolCollection.updateMany(
+      { user_id: { $in: kolIds } },
+      { $set: { scanned_at: now, error: "DailyUpdateError" } }
+    );
+  },
+
   // async batchUpdateErrorCode(): Promise<any[]> {},
 };
 

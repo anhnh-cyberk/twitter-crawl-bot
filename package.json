@@ -6,13 +6,15 @@
   "scripts": {
     "test": "npx tsx src/index/test.js",
     "following": "npx tsx src/get-following/get-following.ts",
-    "daily": "npx tsx src/daily-update/daily-update-user.ts",
-    "daily-kol": "npx tsx src/daily-update/daily-update-kol.ts",
     "auto": "npx tsx src/get-tracking-following/get-auto.ts",
     "index": "npx tsx src/index/index.ts",
     "load": "npx tsx src/load/load.ts",
     "load-relation": "npx tsx src/load/load-relation.ts",
-    "get-all-kols": "npx tsx src/script/get-all-following-kols.ts"
+    "get-all-kols": "npx tsx src/script/get-all-following-kols.ts",
+    "daily-user": "npx tsx src/daily-update/daily-update-user.ts",
+    "daily-kol": "npx tsx src/daily-update/daily-update-kol.ts",
+    "index-tracking": "npx tsx src/index/index-tracking.ts",
+    "daily-tracking": "npx tsx src/daily-update/daily-tracking-following.ts"
   },
   "author": "",
   "license": "ISC",
