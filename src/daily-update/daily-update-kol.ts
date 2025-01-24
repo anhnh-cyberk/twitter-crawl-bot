@@ -218,7 +218,7 @@ async function botFunctionBatch() {
   );
 }
 
-async function confinuouslyUpdate() {
+async function continuouslyUpdate() {
   const delay = Math.floor(Math.random() * 3) + 2;
   while (true) {
     try {
@@ -230,6 +230,7 @@ async function confinuouslyUpdate() {
     }
   }
 }
+
 async function batchUpdate() {
   while (true) {
     await botFunctionBatch();
@@ -240,8 +241,8 @@ async function batchUpdate() {
 }
 
 async function main() {
-  // setInterval(batchUpdate, 86400000); // 86400000 milliseconds = 24 hours
-  await confinuouslyUpdate();
+  batchUpdate();
+  // await continuouslyUpdate();
 }
 
 main();
