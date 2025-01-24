@@ -18,7 +18,7 @@ interface FollowingDocument {
 
 let client = await getMongoConnection();
 
-async function insertQuery(
+async function insertOneFollowing(
   userId: string | number,
   followingId: string | number
 ): Promise<string> {
@@ -52,6 +52,39 @@ async function insertQuery(
   return error;
 }
 
+async function insertBatchFollowing(
+  users: FollowingDocument[]
+): Promise<string> {
+  const now: DateTime = DateTime.now();
+  const formattedDatetime: string = now.toFormat("yyyy-MM-dd HH:mm:ss.SSS");
+  let error: string = "";
+  let client: PoolClient | null = null;
+
+  try {
+    client = await pool.connect();
+    const values = users
+      .map(
+        (user) =>
+          `('${formattedDatetime}', '${formattedDatetime}', ${user.user_id}, ${user.following_id})`
+      )
+      .join(",");
+    const query = `INSERT INTO public."TwitterAccountFollowing" ("createdAt", "updatedAt", id, following_id) VALUES ${values}`;
+    await client.query(query);
+    await client.query("COMMIT");
+  } catch (e) {
+    console.error(`Error inserting data: ${e}`);
+    error = `Error: ${e}`;
+    if (client) {
+      await client.query("ROLLBACK");
+    }
+  } finally {
+    if (client) {
+      client.release();
+    }
+  }
+  return error;
+}
+
 async function loadFunction(): Promise<void> {
   const db: Db = client.db("CoinseekerETL");
   const relationCollection: Collection<FollowingDocument> = db.collection(
@@ -67,7 +100,7 @@ async function loadFunction(): Promise<void> {
       break;
     }
 
-    const error: string = await insertQuery(
+    const error: string = await insertOneFollowing(
       existingDocument.user_id,
       existingDocument.following_id
     );
@@ -105,11 +138,52 @@ async function loadFunction(): Promise<void> {
   }
 }
 
+async function batchLoadFunction(): Promise<void> {
+  const db: Db = client.db("CoinseekerETL");
+  const relationCollection: Collection<FollowingDocument> = db.collection(
+    "TwitterAccountFollowing"
+  );
+
+  while (true) {
+    const existingDocuments: FollowingDocument[] = await relationCollection
+      .find({ transported: { $exists: false } })
+      .toArray();
+    console.log("count:", existingDocuments.length);
+    if (existingDocuments.length === 0) {
+      console.log("No more data to add.");
+      break;
+    }
+    const error: string = await insertBatchFollowing(existingDocuments);
+    if (error) {
+      console.log(existingDocuments.length, "record failed with error", error);
+    } else {
+      console.log(existingDocuments.length, "insert successfully");
+    }
+    const operations = await Promise.all(
+      existingDocuments.map((document) => {
+        return {
+          updateOne: {
+            filter: { _id: document._id },
+            update: {
+              $set: {
+                transported: !error,
+                ...(error && { error }),
+              },
+            },
+          },
+        };
+      })
+    );
+
+    await relationCollection.bulkWrite(operations);
+  }
+}
+
 async function main(): Promise<void> {
-  const delay: number = 1;
+  const delay: number = 3;
   while (true) {
     try {
-      await loadFunction();
+      await batchLoadFunction();
       console.log(`process completed, retry in next ${delay}s`);
       await sleep(delay * 1000);
     } catch (e: any) {
