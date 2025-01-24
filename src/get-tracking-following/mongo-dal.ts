@@ -2,47 +2,15 @@ import { Collection, Db, ObjectId } from "mongodb";
 import {
   getMongoConnection,
   isMongoAvailable,
+  withConnectionRetry,
 } from "../common/connection/mongo-connection";
 import {
-  AutoTracking,
   TwitterAccount,
   TwitterAccountFollowing,
 } from "../common/models/mongo-models.js";
 
 let client = await getMongoConnection();
 let db = client.db(process.env.MONGO_DB_NAME);
-
-export const AutoTrackingDAL = {
-  async upsert(autoTracking: AutoTracking): Promise<void> {
-    validateConnection();
-    const userCollection = db.collection<AutoTracking>("AutoTracking");
-    await userCollection.updateOne(
-      { twitter_id: autoTracking.twitter_id },
-      {
-        $set: {
-          screen_name: autoTracking.screen_name,
-          name: autoTracking.name,
-        },
-        $setOnInsert: { status: "new" },
-      },
-      { upsert: true }
-    );
-  },
-  async getNewRecord(): Promise<any> {
-    validateConnection();
-    const autoTrackingCollection = db.collection("AutoTracking");
-    const record = await autoTrackingCollection.findOne({ status: "new" });
-    return record;
-  },
-  async updateStatus(tweeterId: string, status: string): Promise<void> {
-    validateConnection();
-    const autoTrackingCollection = db.collection("AutoTracking");
-    await autoTrackingCollection.updateOne(
-      { twitter_id: tweeterId },
-      { $set: { status: status } }
-    );
-  },
-};
 
 export const TwitterAccountDAL = {
   async AddTwitterAccount(
@@ -93,6 +61,28 @@ export const RelationDAL = {
   },
 };
 export const TrackingDAL = {
+  // other code
+  async getRecentTracking(): Promise<any> {
+    validateConnection();
+    const userCollection = db.collection("Tracking");
+    const recentlyAddedUser = await userCollection.findOne({
+      $or: [{ status: "new" }, { status: { $exists: false } }],
+    });
+    return recentlyAddedUser;
+  },
+
+  async UpdateStatus(mongoId: ObjectId, status: string): Promise<void> {
+    validateConnection();
+    const userCollection = db.collection("Tracking");
+    await userCollection.updateOne(
+      { _id: mongoId },
+      {
+        $set: {
+          status: status,
+        },
+      }
+    );
+  },
   async isExists(twitterId: string): Promise<boolean> {
     validateConnection();
     const trackingCollection = db.collection("Tracking");
@@ -132,6 +122,24 @@ export const RawDataTwitterUserFriendsDAL = {
       },
       { upsert: true }
     );
+  },
+};
+
+export const RawDataDAL = {
+  async upsert(userId: string, screenName: string, data: any): Promise<void> {
+    return withConnectionRetry(async () => {
+      const rawCollection = db.collection("RawData_TwitterUser_Friends");
+      await rawCollection.updateOne(
+        { user_id: userId },
+        {
+          $set: {
+            screen_name: screenName,
+            data: data,
+          },
+        },
+        { upsert: true }
+      );
+    });
   },
 };
 
