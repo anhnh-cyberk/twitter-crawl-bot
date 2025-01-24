@@ -68,7 +68,9 @@ async function insertBatchFollowing(
           `('${formattedDatetime}', '${formattedDatetime}', ${user.user_id}, ${user.following_id})`
       )
       .join(",");
-    const query = `INSERT INTO public."TwitterAccountFollowing" ("createdAt", "updatedAt", id, following_id) VALUES ${values}`;
+    const query = `INSERT INTO public."TwitterAccountFollowing" ("createdAt", "updatedAt", id, following_id) VALUES ${values}
+          ON CONFLICT (id, following_id) DO UPDATE SET
+        "updatedAt" = EXCLUDED."updatedAt"`;
     await client.query(query);
     await client.query("COMMIT");
   } catch (e) {
@@ -147,6 +149,7 @@ async function batchLoadFunction(): Promise<void> {
   while (true) {
     const existingDocuments: FollowingDocument[] = await relationCollection
       .find({ transported: { $exists: false } })
+      .limit(1000)
       .toArray();
     console.log("count:", existingDocuments.length);
     if (existingDocuments.length === 0) {

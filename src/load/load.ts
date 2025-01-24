@@ -23,7 +23,7 @@ interface TwitterAccountDocument {
 
 let client = await getMongoConnection();
 
-async function insertQuery(
+async function insertOneAccount(
   userId: string | number,
   screenName: string,
   name: string,
@@ -77,7 +77,7 @@ async function loadFunction(): Promise<void> {
       break;
     }
 
-    const error: string = await insertQuery(
+    const error: string = await insertOneAccount(
       existingDocument.user_id,
       existingDocument.screen_name,
       existingDocument.name,
@@ -109,11 +109,99 @@ async function loadFunction(): Promise<void> {
   }
 }
 
+async function insertBatchAccounts(
+  users: TwitterAccountDocument[]
+): Promise<string> {
+  const now: DateTime = DateTime.now();
+  const formattedDatetime: string = now.toFormat("yyyy-MM-dd HH:mm:ss.SSS");
+  let error: string = "";
+  let postgreClient: PoolClient | null = null;
+
+  try {
+    postgreClient = await pool.connect();
+    const values = users
+      .map(
+        (user) =>
+          `('${user.user_id}', '${user.screen_name.replace(
+            /'/g,
+            "''"
+          )}', '${user.name.replace(/'/g, "''")}', '${
+            user.avatar_url
+          }', '${formattedDatetime}', '${formattedDatetime}')`
+      )
+      .join(",");
+    const query = `INSERT INTO public."TwitterAccount" (id, screen_name, "name", avatar_url, "createdAt", "updatedAt") VALUES ${values}
+    ON CONFLICT (id) DO UPDATE SET
+        screen_name = EXCLUDED.screen_name,
+        "name" = EXCLUDED."name",
+        avatar_url = EXCLUDED.avatar_url,
+        "updatedAt" = EXCLUDED."updatedAt"   
+    ON CONFLICT (screen_name) DO UPDATE SET 
+        id = EXCLUDED.id,
+        "name" = EXCLUDED."name",
+        avatar_url = EXCLUDED.avatar_url,
+        "updatedAt" = EXCLUDED."updatedAt"`;
+    await postgreClient.query(query);
+    await postgreClient.query("COMMIT");
+  } catch (e) {
+    console.error(`Error inserting data: ${e}`);
+    error = `Error: ${e}`;
+    if (postgreClient) {
+      await postgreClient.query("ROLLBACK");
+    }
+  } finally {
+    if (postgreClient) {
+      postgreClient.release();
+    }
+  }
+  return error;
+}
+
+async function batchLoadFunction(): Promise<void> {
+  const db: Db = client.db("CoinseekerETL");
+  const twitterAccountCollection: Collection<TwitterAccountDocument> =
+    db.collection("TwitterAccount");
+
+  while (true) {
+    const existingDocuments: TwitterAccountDocument[] =
+      await twitterAccountCollection
+        .find({ transported: { $exists: false } })
+        .limit(100) // Add a limit to prevent memory issues
+        .toArray();
+
+    console.log("count:", existingDocuments.length);
+    if (existingDocuments.length === 0) {
+      console.log("No more data to add.");
+      break;
+    }
+
+    const error: string = await insertBatchAccounts(existingDocuments);
+    if (error) {
+      console.log(existingDocuments.length, "records failed with error", error);
+    } else {
+      console.log(existingDocuments.length, "records inserted successfully");
+    }
+
+    const operations = existingDocuments.map((document) => ({
+      updateOne: {
+        filter: { _id: document._id },
+        update: {
+          $set: {
+            transported: !error,
+            ...(error && { error }),
+          },
+        },
+      },
+    }));
+
+    await twitterAccountCollection.bulkWrite(operations);
+  }
+}
 async function main(): Promise<void> {
-  const delay: number = 1;
+  const delay: number = 3;
   while (true) {
     try {
-      await loadFunction();
+      await batchLoadFunction();
       console.log(`process completed, retry in next ${delay}s`);
       await sleep(delay * 1000);
     } catch (error) {
