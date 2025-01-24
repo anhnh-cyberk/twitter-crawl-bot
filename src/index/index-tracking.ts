@@ -61,7 +61,7 @@ async function loadTrackingFromCoinseeker(): Promise<string[]> {
 }
 
 async function main() {
-  const delay = 30;
+  const delay = 30*60;//30min
   while (true) {
     try {
       const trackingList = await loadTrackingFromCoinseeker();

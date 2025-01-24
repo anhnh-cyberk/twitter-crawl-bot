@@ -126,7 +126,7 @@ async function getAndProcessAllPage(userId: string): Promise<any[]> {
         const existed = await processOneRecord(userId, record);
         if (existed) {
           needFetchMore = false;
-          console.log(`All following of ${userId} has been added`);
+          console.log(`All follower of ${userId} has been added`);
           break;
         }
       }

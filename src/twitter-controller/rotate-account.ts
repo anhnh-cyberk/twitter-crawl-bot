@@ -19,7 +19,7 @@ export async function makeGetRequest(url: string): Promise<any> {
     accountListDicts = accountList.map((account) => ({
       username: account.username,
       cookie: account.cookie,
-      authorization: account.authorization,
+      authorization: account.authorization, 
       "x-csrf-token": account["x-csrf-token"],
       "x-guest-token": account["x-guest-token"],
       "user-agent": account["user-agent"],

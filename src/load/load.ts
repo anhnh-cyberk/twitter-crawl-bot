@@ -36,6 +36,7 @@ async function insertOneAccount(
 
   try {
     postgreClient = await pool.connect();
+    avatar.replace(/_normal\./, ".");
     const query: string =
       'INSERT INTO public."TwitterAccount" (id, screen_name, "name", avatar_url, "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, $5, $6)';
     await postgreClient.query(query, [
@@ -125,9 +126,10 @@ async function insertBatchAccounts(
           `('${user.user_id}', '${user.screen_name.replace(
             /'/g,
             "''"
-          )}', '${user.name.replace(/'/g, "''")}', '${
-            user.avatar_url
-          }', '${formattedDatetime}', '${formattedDatetime}')`
+          )}', '${user.name.replace(/'/g, "''")}', '${user.avatar_url.replace(
+            /_normal\./,
+            "."
+          )}', '${formattedDatetime}', '${formattedDatetime}')`
       )
       .join(",");
     const query = `INSERT INTO public."TwitterAccount" (id, screen_name, "name", avatar_url, "createdAt", "updatedAt") VALUES ${values}
