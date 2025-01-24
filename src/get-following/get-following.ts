@@ -170,7 +170,7 @@ async function botFunction() {
     console.log("No new user found");
     return;
   }
-
+  await UserDAL.updateUserStatus(recentlyAddedUser._id, "processing");
   const data = await fetchAndProcessAllPage(recentlyAddedUser.twitter_id);
 
   await RawDataDAL.upsert(

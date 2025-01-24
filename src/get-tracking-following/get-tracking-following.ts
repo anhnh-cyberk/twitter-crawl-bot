@@ -154,7 +154,7 @@ async function botFunction() {
     console.log("No new user found");
     return;
   }
-
+  await TrackingDAL.UpdateStatus(recentlyAddedTracking._id, "processing");
   const data = await fetchAndProcessAllPage(recentlyAddedTracking.twitter_id);
 
   await RawDataDAL.upsert(
