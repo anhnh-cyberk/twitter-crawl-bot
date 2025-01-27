@@ -69,44 +69,52 @@ async function fetchOnePage(
   };
 }
 
-//insert friend record, return true if already existed
-async function processOneRecord(userId: string, record: any) {
-  try {
-    const friendId = record.content.itemContent.user_results.result.rest_id;
-    const screenName =
-      record.content.itemContent.user_results.result.legacy.screen_name;
-    const name = record.content.itemContent.user_results.result.legacy.name;
-    const avatarUrl =
-      record.content.itemContent.user_results.result.legacy
-        .profile_image_url_https;
+// //insert friend record, return true if already existed
+// async function processOneRecord(userId: string, record: any) {
+//   try {
+//     const friendId = record.content.itemContent.user_results.result.rest_id;
+//     const screenName =
+//       record.content.itemContent.user_results.result.legacy.screen_name;
+//     const name = record.content.itemContent.user_results.result.legacy.name;
+//     const avatarUrl =
+//       record.content.itemContent.user_results.result.legacy
+//         .profile_image_url_https;
 
-    // Use the DAL or ODM to interact with the database
-    await TwitterAccountDAL.upsert({
-      user_id: friendId,
-      screen_name: screenName,
-      name,
-      avatar_url: avatarUrl,
-    });
-    await RelationDAL.add({
-      user_id: userId,
-      following_id: friendId,
-    });
-  } catch (e: any) {
-    console.error(
-      `Error processing friend record for userId: ${userId}, Record: ${JSON.stringify(
-        record
-      )}, Error: ${e}`
-    );
-    // Log the error to a file (consider using a proper logging library)
-    fs.appendFileSync(
-      "error_get_following.txt",
-      `Timestamp: ${new Date().toString()}\nError processing friend record for userId: ${userId}, Record: ${JSON.stringify(
-        record
-      )}, Error: ${e.message}\n`
-    );
-  }
+//     // Use the DAL or ODM to interact with the database
+//     await TwitterAccountDAL.upsert({
+//       user_id: friendId,
+//       screen_name: screenName,
+//       name,
+//       avatar_url: avatarUrl,
+//     });
+//     await RelationDAL.add({
+//       user_id: userId,
+//       following_id: friendId,
+//     });
+//   } catch (e: any) {
+//     console.error(
+//       `Error processing friend record for userId: ${userId}, Record: ${JSON.stringify(
+//         record
+//       )}, Error: ${e}`
+//     );
+//     // Log the error to a file (consider using a proper logging library)
+//     fs.appendFileSync(
+//       "error_get_following.txt",
+//       `Timestamp: ${new Date().toString()}\nError processing friend record for userId: ${userId}, Record: ${JSON.stringify(
+//         record
+//       )}, Error: ${e.message}\n`
+//     );
+//   }
+// }
+async function processAllRecord(userId: string, records: any[]) {
+  await TwitterAccountDAL.upsertMany(records);
+  await RelationDAL.insertMany({
+    userId: userId,
+    followings: records.map(
+      (record) => record.content.itemContent.user_results.result.rest_id
+    ),
+  });
 }
-
 async function getAndProcessAllPage(userId: string): Promise<any[]> {
   const allRecords: any[] = [];
   let cursor: string | null = "";
@@ -122,12 +130,8 @@ async function getAndProcessAllPage(userId: string): Promise<any[]> {
       await new Promise((resolve) => setTimeout(resolve, delay * 1000));
       const { data, nextCursor } = await fetchOnePage(userId, cursor);
 
-      for (const record of data) {
-        await processOneRecord(userId, record);
-        allRecords.push(record);
-      }
-
-      // allRecords.push(...data);
+      await processAllRecord(userId, data);
+      allRecords.push(...data);
       cursor = nextCursor;
     } catch (error) {
       if (error instanceof AuthorizationError) {
@@ -160,16 +164,16 @@ async function getAndProcessAllPage(userId: string): Promise<any[]> {
 }
 
 async function botFunction() {
-  const oldRecord = await KolDAL.getOldRecord();
-  if (!oldRecord) {
+  const newRecord = await KolDAL.getNewRecord();
+  if (!newRecord) {
     console.log("No kol need updated");
     return;
   }
+  console.log("process for:", newRecord.screen_name);
+  const data = await getAndProcessAllPage(newRecord.user_id);
 
-  const data = await getAndProcessAllPage(oldRecord.user_id);
-
-  await RawDataDAL.upsert(oldRecord.user_id, oldRecord.screen_name, data);
-  await KolDAL.updateScannedAt(oldRecord._id);
+  await RawDataDAL.upsert(newRecord.user_id, newRecord.screen_name, data);
+  await KolDAL.updateScannedAt(newRecord._id);
 }
 
 async function confinuouslyUpdate() {

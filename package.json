@@ -15,7 +15,8 @@
     "daily-kol": "npx tsx src/daily-update/daily-update-kol.ts",
     "index-tracking": "npx tsx src/index/index-tracking.ts",
     "daily-tracking": "npx tsx src/daily-update/daily-tracking-following.ts",
-    "get-tracking": "npx tsx src/get-tracking-following/get-tracking-following.ts"
+    "get-tracking": "npx tsx src/get-tracking-following/get-tracking-following.ts",
+    "get-kols": "npx tsx src/script/get-all-following-kols.ts"
   },
   "author": "",
   "license": "ISC",

@@ -27,6 +27,28 @@ export const TwitterAccountDAL = {
       );
     });
   },
+
+  async upsertMany(records: TwitterAccount[]): Promise<void> {
+    return withConnectionRetry(async () => {
+      const twitterAccountCollection =
+        db.collection<TwitterAccount>("TwitterAccount");
+      const operations = records.map((record) => ({
+        updateOne: {
+          filter: { user_id: record.user_id },
+          update: {
+            $set: {
+              screen_name: record.screen_name,
+              avatar_url: record.avatar_url,
+              name: record.name,
+            },
+            $setOnInsert: { status: "new" },
+          },
+          upsert: true,
+        },
+      }));
+      await twitterAccountCollection.bulkWrite(operations);
+    });
+  },
 };
 
 export const RelationDAL = {
@@ -45,6 +67,25 @@ export const RelationDAL = {
       } else {
         existed = true;
       }
+      return existed;
+    });
+  },
+  async insertMany({ userId, followings }): Promise<boolean> {
+    return withConnectionRetry(async () => {
+      let existed = false;
+      const relationCollection = db.collection<Relation>(
+        "TwitterAccountFollowing"
+      );
+      const operations = followings.map((followingId) => ({
+        insertOne: {
+          document: {
+            user_id: userId,
+            following_id: followingId,
+          },
+          options: { ordered: false },
+        },
+      }));
+      await relationCollection.bulkWrite(operations, { ordered: false });
       return existed;
     });
   },
@@ -101,7 +142,7 @@ export const UserDAL = {
 
 export const KolDAL = {
   // other code
-  async getOldRecord(): Promise<any> {
+  async getNewRecord(): Promise<any> {
     return withConnectionRetry(async () => {
       const kolCollection = db.collection("TwitterKOL");
       const record = await kolCollection.findOne({
