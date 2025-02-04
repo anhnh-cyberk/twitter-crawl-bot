@@ -148,13 +148,6 @@ export const KolDAL = {
       const record = await kolCollection.findOne({
         scanned: { $exists: false },
       });
-      // .findOne({
-      //   $or: [
-      //     { scannedAt: null },
-      //     { scannedAt: { $exists: false } },
-      //     { scannedAt: { $lt: getYesterdayDate().setHours(0, 0, 0, 0) } },
-      //   ],
-      // });
       return record;
     });
   },
@@ -178,12 +171,6 @@ export const KolDAL = {
     const kolCollection = db.collection("TwitterKOL");
     const records = await kolCollection
       .find()
-      // .find({
-      //   $or: [
-      //     { scanned_at: { $lt: getYesterdayDate().setHours(0, 0, 0, 0) } },
-      //     { scanned_at: { $exists: false } },
-      //   ],
-      // })
       .toArray();
     return records;
   },
