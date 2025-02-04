@@ -134,12 +134,6 @@ async function insertBatchAccounts(
       .join(",");
     const query = `INSERT INTO public."TwitterAccount" (id, screen_name, "name", avatar_url, "createdAt", "updatedAt") VALUES ${values}
     ON CONFLICT (id) DO UPDATE SET
-        screen_name = EXCLUDED.screen_name,
-        "name" = EXCLUDED."name",
-        avatar_url = EXCLUDED.avatar_url,
-        "updatedAt" = EXCLUDED."updatedAt"   
-    ON CONFLICT (screen_name) DO UPDATE SET 
-        id = EXCLUDED.id,
         "name" = EXCLUDED."name",
         avatar_url = EXCLUDED.avatar_url,
         "updatedAt" = EXCLUDED."updatedAt"`;

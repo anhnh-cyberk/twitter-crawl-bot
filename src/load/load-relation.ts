@@ -149,9 +149,8 @@ async function batchLoadFunction(): Promise<void> {
   while (true) {
     const existingDocuments: FollowingDocument[] = await relationCollection
       .find({ transported: { $exists: false } })
-      .limit(1000)
+      .limit(100)
       .toArray();
-    console.log("count:", existingDocuments.length);
     if (existingDocuments.length === 0) {
       console.log("No more data to add.");
       break;
