@@ -13,50 +13,72 @@ let client = await getMongoConnection();
 let db = client.db(process.env.MONGO_DB_NAME);
 
 export const TwitterAccountDAL = {
-  async AddTwitterAccount(
-    userId: string,
-    screenName: string,
-    name: string,
-    avatarUrl: string
-  ): Promise<void> {
+  async BulkAddTwitterAccounts(accounts: TwitterAccount[]): Promise<void> {
     const db: Db = client.db("CoinseekerETL");
     const twitterAccountCollection: Collection<TwitterAccount> =
       db.collection("TwitterAccount");
 
-    await twitterAccountCollection.updateOne(
-      { user_id: userId },
-      {
-        $set: {
-          screen_name: screenName,
-          avatar_url: avatarUrl,
-          name: name,
+    const operations = accounts.map((account) => ({
+      updateOne: {
+        filter: { user_id: account.user_id },
+        update: {
+          $set: {
+            screen_name: account.screen_name,
+            avatar_url: account.avatar_url,
+            name: account.name,
+          },
+          $setOnInsert: { status: "new" },
         },
-        $setOnInsert: { status: "new" },
+        upsert: true,
       },
-      { upsert: true }
-    );
+    }));
+
+    if (operations.length > 0) {
+      await twitterAccountCollection.bulkWrite(operations, { ordered: false });
+    }
   },
 };
 export const RelationDAL = {
-  async AddRelation(userId: string, friendId: string): Promise<void> {
+  async BulkAddRelations(
+    relations: { userId: string; friendId: string }[]
+  ): Promise<void> {
     validateConnection();
     const db: Db = client.db("CoinseekerETL");
     const relationCollection: Collection<TwitterAccountFollowing> =
       db.collection("TwitterAccountFollowing");
 
-    const existingDocument: TwitterAccountFollowing | null =
-      await relationCollection.findOne({
-        user_id: userId,
-        following_id: friendId,
-      });
+    const operations = [];
 
-    if (!existingDocument) {
-      const document: TwitterAccountFollowing = {
-        _id: new ObjectId(),
-        user_id: userId,
-        following_id: friendId,
-      };
-      await relationCollection.insertOne(document);
+    // Efficiently check for existing relations before inserting
+    const existingRelations = await relationCollection
+      .find({
+        $or: relations.map((rel) => ({
+          user_id: rel.userId,
+          following_id: rel.friendId,
+        })),
+      })
+      .toArray();
+
+    const existingRelationSet = new Set(
+      existingRelations.map((rel) => `${rel.user_id}-${rel.following_id}`)
+    );
+
+    for (const relation of relations) {
+      const key = `${relation.userId}-${relation.friendId}`;
+      if (!existingRelationSet.has(key)) {
+        operations.push({
+          insertOne: {
+            document: {
+              user_id: relation.userId,
+              following_id: relation.friendId,
+            },
+          },
+        });
+      }
+    }
+
+    if (operations.length > 0) {
+      await relationCollection.bulkWrite(operations, { ordered: false });
     }
   },
 };

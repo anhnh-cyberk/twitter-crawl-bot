@@ -5,7 +5,9 @@ import {
   RelationDAL,
   RawDataDAL,
   TrackingDAL,
+  KOLDal,
 } from "./mongo-dal.js";
+import { TwitterAccount } from "../common/models/mongo-models.js";
 import { AuthorizationError, ApiError } from "../common/error.js";
 
 // Function to generate the API URL
@@ -68,40 +70,68 @@ async function fetchOnePage(
     nextCursor,
   };
 }
-
-async function processRecord(
+async function processBulkRecord(
   userId: string,
-  record: any,
+  records: any[]
 ): Promise<void> {
   try {
-    const friendId = record.content.itemContent.user_results.result.rest_id;
-    const screenName =
-      record.content.itemContent.user_results.result.legacy.screen_name;
-    const name = record.content.itemContent.user_results.result.legacy.name;
-    const avatarUrl =
-      record.content.itemContent.user_results.result.legacy
-        .profile_image_url_https;
+    const twitterAccounts: TwitterAccount[] = [];
+    const relations: { userId: string; friendId: string }[] = [];
 
-    // Use the DAL or ODM to interact with the database
-    await TwitterAccountDAL.AddTwitterAccount( friendId,screenName, name,avatarUrl,
-    );
-    await RelationDAL.AddRelation( userId,  friendId );
+    for (const record of records) {
+      try {
+        // Inner try-catch for individual record errors
+        const friendId = record.content.itemContent.user_results.result.rest_id;
+        const screenName =
+          record.content.itemContent.user_results.result.legacy.screen_name;
+        const name = record.content.itemContent.user_results.result.legacy.name;
+        const avatarUrl =
+          record.content.itemContent.user_results.result.legacy
+            .profile_image_url_https;
+
+        twitterAccounts.push({
+          user_id: friendId,
+          screen_name: screenName,
+          name: name,
+          avatar_url: avatarUrl,
+        });
+
+        relations.push({ userId, friendId });
+      } catch (innerError) {
+        console.error(
+          `Error processing individual friend record for userId: ${userId}, Record: ${JSON.stringify(
+            record
+          )}, Error: ${innerError}`
+        );
+        fs.appendFileSync(
+          "error_get_following.txt",
+          `Timestamp: ${new Date().toString()}\nError processing individual friend record for userId: ${userId}, Record: ${JSON.stringify(
+            record
+          )}, Error: ${innerError.message}\n`
+        );
+        // Continue processing other records even if one fails.
+      }
+    }
+
+    if (twitterAccounts.length > 0) {
+      await TwitterAccountDAL.BulkAddTwitterAccounts(twitterAccounts);
+    }
+
+    if (relations.length > 0) {
+      await RelationDAL.BulkAddRelations(relations);
+    }
   } catch (e: any) {
     console.error(
-      `Error processing friend record for userId: ${userId}, Record: ${JSON.stringify(
-        record
-      )}, Error: ${e}`
+      `Error processing bulk friend records for userId: ${userId}, Error: ${e}`
     );
-    // Log the error to a file (consider using a proper logging library)
     fs.appendFileSync(
       "error_get_following.txt",
-      `Timestamp: ${new Date().toString()}\nError processing friend record for userId: ${userId}, Record: ${JSON.stringify(
-        record
-      )}, Error: ${e.message}\n`
+      `Timestamp: ${new Date().toString()}\nError processing bulk friend records for userId: ${userId}, Error: ${
+        e.message
+      }\n`
     );
   }
 }
-
 async function fetchAndProcessAllPage(userId: string): Promise<any[]> {
   const allRecords: any[] = [];
   let cursor: string | null = "";
@@ -114,9 +144,7 @@ async function fetchAndProcessAllPage(userId: string): Promise<any[]> {
 
     try {
       const { data, nextCursor } = await fetchOnePage(userId, cursor);
-      await Promise.allSettled(
-        data.map((record) => processRecord(userId, record))
-      );
+      processBulkRecord(userId, data);
       allRecords.push(...data);
       cursor = nextCursor;
     } catch (error) {
@@ -167,7 +195,7 @@ async function botFunction() {
 }
 
 async function main() {
-  const delay = 10;
+  const delay = 5*60;
   while (true) {
     try {
       await botFunction();
