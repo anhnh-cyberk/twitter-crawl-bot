@@ -74,16 +74,16 @@ export const TrackingDAL = {
     return withConnectionRetry(async () => {
       const userCollection = db.collection("Tracking");
       const record = await userCollection.findOne({
-        $and: [
+        $or: [
+          { scannedAt: null },
+          { scannedAt: { $exists: false } },
           {
-            $or: [
-              { scannedAt: null },
-              { scannedAt: { $exists: false } },
-              { scannedAt: { $lt: getYesterdayDate().setHours(0, 0, 0, 0) } },
-            ],
+            scannedAt: {
+              $lt: new Date(new Date().setHours(0, 0, 0, 0)).toISOString(),
+            },
           },
-          { status: "completed" },
         ],
+        status: "completed",
       });
       return record;
     });
@@ -106,23 +106,25 @@ export const TrackingDAL = {
 export const UserDAL = {
   // other code
   async getOldRecord(): Promise<any> {
-    return withConnectionRetry(async () => {
-      const userCollection = db.collection("User");
-      const record = await userCollection.findOne({
-        $and: [
-          {
-            $or: [
-              { scannedAt: null },
-              { scannedAt: { $exists: false } },
-              { scannedAt: { $lt: getYesterdayDate().setHours(0, 0, 0, 0) } },
-            ],
+    const userCollection = db.collection("User");
+    const record = await userCollection.findOne({
+      $or: [
+        { scannedAt: null },
+        { scannedAt: { $exists: false } },
+        {
+          scannedAt: {
+            $lt: new Date(new Date().setHours(0, 0, 0, 0)).toISOString(),
           },
-          { status: "completed" },
-        ],
-      });
-      return record;
+        },
+      ],
+      // twitter_id: "1460218588762046469",//HoangAnh7794212 -anhnh
+      //  twitter_id: "1769313468513968128" ,//carot
+      //  twitter_id: "1851557849853558784",//AnhNgHoang23633 -anhnhcyberk
+      status: "completed",
     });
+    return record;
   },
+
   async updateScannedAt(mongoId: ObjectId): Promise<void> {
     return withConnectionRetry(async () => {
       const userCollection = db.collection("User");

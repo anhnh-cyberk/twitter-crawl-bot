@@ -118,7 +118,7 @@ async function getAndProcessAllPage(userId: string): Promise<any[]> {
   while (needFetchMore) {
     loop += 1;
     try {
-      const delay = 10;
+      const delay = 2;
       await new Promise((resolve) => setTimeout(resolve, delay * 1000));
       const { data, nextCursor } = await fetchOnePage(userId, cursor);
 
@@ -127,6 +127,7 @@ async function getAndProcessAllPage(userId: string): Promise<any[]> {
         if (existed) {
           needFetchMore = false;
           console.log(`All follower of ${userId} has been added`);
+          console.log(` ${data.length} itemfound`);
           break;
         }
       }
@@ -166,7 +167,7 @@ async function getAndProcessAllPage(userId: string): Promise<any[]> {
 async function botFunction() {
   const oldRecord = await UserDAL.getOldRecord();
   if (!oldRecord) {
-    console.log("No kol need updated");
+    console.log("No user need updated");
     return;
   }
 
@@ -178,7 +179,7 @@ async function botFunction() {
 }
 
 async function main() {
-  const delay = 10;
+  const delay = 30;
   while (true) {
     try {
       await botFunction();
