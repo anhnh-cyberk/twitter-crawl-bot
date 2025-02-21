@@ -1,4 +1,4 @@
-import { Db, Collection, ObjectId } from "mongodb";
+import { Db, Collection, ObjectId, Filter, UpdateFilter } from "mongodb";
 import { PoolClient } from "pg";
 import { setTimeout as sleep } from "timers/promises";
 import { DateTime } from "luxon";
@@ -7,12 +7,16 @@ import {
   isMongoAvailable,
 } from "../common/connection/mongo-connection";
 import { getPostgreConnection } from "../common/connection/postgre-connection";
+import * as dotenv from "dotenv";
+dotenv.config();
+
 let pool = getPostgreConnection();
 interface FollowingDocument {
   _id: ObjectId;
   user_id: string | number;
   following_id: string | number;
-  transported?: boolean;
+  transportedDev?: boolean;
+  transportedProd?: boolean;
   error?: string;
 }
 
@@ -87,6 +91,34 @@ async function insertBatchFollowing(
   return error;
 }
 
+function getFilter(): Filter<FollowingDocument> {
+  if (process.env.ENV == "prod") {
+    return {
+      transportedProd: { $exists: false },
+    };
+  } else {
+    return {
+      transportedDev: { $exists: false },
+    };
+  }
+}
+function setTransported(error: string): UpdateFilter<Document> {
+  if (process.env.ENV == "prod") {
+    return {
+      $set: {
+        transportedProd: !error,
+        ...(error && { error }),
+      },
+    };
+  } else {
+    return {
+      $set: {
+        transportedDev: !error,
+        ...(error && { error }),
+      },
+    };
+  }
+}
 async function loadFunction(): Promise<void> {
   const db: Db = client.db("CoinseekerETL");
   const relationCollection: Collection<FollowingDocument> = db.collection(
@@ -95,7 +127,7 @@ async function loadFunction(): Promise<void> {
 
   while (true) {
     const existingDocument: FollowingDocument | null =
-      await relationCollection.findOne({ transported: { $exists: false } });
+      await relationCollection.findOne(getFilter());
 
     if (!existingDocument) {
       console.log("No more data to add.");
@@ -115,12 +147,7 @@ async function loadFunction(): Promise<void> {
       );
       await relationCollection.updateOne(
         { _id: existingDocument._id },
-        {
-          $set: {
-            transported: false,
-            error: error,
-          },
-        }
+        setTransported(error)
       );
     } else {
       console.log(
@@ -130,11 +157,7 @@ async function loadFunction(): Promise<void> {
       );
       await relationCollection.updateOne(
         { _id: existingDocument._id },
-        {
-          $set: {
-            transported: true,
-          },
-        }
+        setTransported(null) //no error
       );
     }
   }
@@ -148,7 +171,7 @@ async function batchLoadFunction(): Promise<void> {
 
   while (true) {
     const existingDocuments: FollowingDocument[] = await relationCollection
-      .find({ transported: { $exists: false } })
+      .find(getFilter())
       .limit(100)
       .toArray();
     if (existingDocuments.length === 0) {
@@ -166,12 +189,7 @@ async function batchLoadFunction(): Promise<void> {
         return {
           updateOne: {
             filter: { _id: document._id },
-            update: {
-              $set: {
-                transported: !error,
-                ...(error && { error }),
-              },
-            },
+            update: setTransported(error),
           },
         };
       })

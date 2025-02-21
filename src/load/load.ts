@@ -1,4 +1,4 @@
-import { Db, Collection, ObjectId } from "mongodb";
+import { Db, Collection, ObjectId, Filter, UpdateFilter } from "mongodb";
 import { PoolClient } from "pg";
 import { setTimeout as sleep } from "timers/promises";
 import { DateTime } from "luxon";
@@ -7,7 +7,8 @@ import {
   getMongoConnection,
   isMongoAvailable,
 } from "../common/connection/mongo-connection";
-
+import * as dotenv from "dotenv";
+dotenv.config();
 import { getPostgreConnection } from "../common/connection/postgre-connection";
 let pool = getPostgreConnection();
 
@@ -17,10 +18,38 @@ interface TwitterAccountDocument {
   screen_name: string;
   name: string;
   avatar_url: string;
-  transported?: boolean;
+  transportedDev?: boolean;
+  transportedProd?: boolean;
   error?: string;
 }
-
+function getFilter(): Filter<TwitterAccountDocument> {
+  if (process.env.ENV == "prod") {
+    return {
+      transportedProd: { $exists: false },
+    };
+  } else {
+    return {
+      transportedDev: { $exists: false },
+    };
+  }
+}
+function setTransported(error: string): UpdateFilter<Document> {
+  if (process.env.ENV == "prod") {
+    return {
+      $set: {
+        transportedProd: !error,
+        ...(error && { error }),
+      },
+    };
+  } else {
+    return {
+      $set: {
+        transportedDev: !error,
+        ...(error && { error }),
+      },
+    };
+  }
+}
 let client = await getMongoConnection();
 
 async function insertOneAccount(
@@ -69,9 +98,7 @@ async function loadFunction(): Promise<void> {
 
   while (true) {
     const existingDocument: TwitterAccountDocument | null =
-      await twitterAccountCollection.findOne({
-        transported: { $exists: false },
-      });
+      await twitterAccountCollection.findOne(getFilter());
 
     if (!existingDocument) {
       console.log("No more data to add.");
@@ -89,22 +116,13 @@ async function loadFunction(): Promise<void> {
       console.log(existingDocument.screen_name, " insert failed");
       await twitterAccountCollection.updateOne(
         { _id: existingDocument._id },
-        {
-          $set: {
-            transported: false,
-            error: error,
-          },
-        }
+        setTransported(error)
       );
     } else {
       console.log(existingDocument.screen_name, " insert successfully");
       await twitterAccountCollection.updateOne(
         { _id: existingDocument._id },
-        {
-          $set: {
-            transported: true,
-          },
-        }
+        setTransported(error)
       );
     }
   }
@@ -161,7 +179,7 @@ async function batchLoadFunction(): Promise<void> {
   while (true) {
     const existingDocuments: TwitterAccountDocument[] =
       await twitterAccountCollection
-        .find({ transported: { $exists: false } })
+        .find(getFilter())
         .limit(100) // Add a limit to prevent memory issues
         .toArray();
 
@@ -181,12 +199,7 @@ async function batchLoadFunction(): Promise<void> {
     const operations = existingDocuments.map((document) => ({
       updateOne: {
         filter: { _id: document._id },
-        update: {
-          $set: {
-            transported: !error,
-            ...(error && { error }),
-          },
-        },
+        update: setTransported(error),
       },
     }));
 
